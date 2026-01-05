@@ -2,11 +2,17 @@
     KILASIK's Auto Multi-Target Fling Exploit
     Phiên bản tiếng Việt với UI đẹp và danh sách phân trang
     Tính năng:
-    - Tự động fling tất cả người chơi
+    - Tự động fling tất cả người chơi (trừ whitelist)
     - Hiển thị danh sách đã fling (10 người/trang)
     - UI hiện đại với hiệu ứng
     - Tương thích JJSploit, Synapse X, etc.
 ]]
+
+-- DANH SÁCH NGƯỜI CHƠI KHÔNG FLING
+local WhitelistedPlayers = {
+    ["babicutebel"] = true,
+    ["huydz280909"] = true
+}
 
 -- Services
 local Players = game:GetService("Players")
@@ -341,6 +347,11 @@ local function Message(Title, Text, Time)
     })
 end
 
+-- Check if player is whitelisted
+local function IsWhitelisted(playerName)
+    return WhitelistedPlayers[playerName:lower()] == true
+end
+
 -- Update pagination display
 local function UpdatePagination()
     local totalItems = #FlingedPlayers
@@ -435,7 +446,7 @@ local function AddToFlingedList(playerName)
     local timeStr = os.date("%H:%M:%S")
     
     -- Add to list
-    table.insert(FlingedPlayers, 1, {name = playerName, time = timeStr}) -- Add to beginning
+    table.insert(FlingedPlayers, 1, {name = playerName, time = timeStr})
     
     -- Update display
     FlingedCount.Text = tostring(#FlingedPlayers)
@@ -602,10 +613,10 @@ local function SkidFling(TargetPlayer)
     end
 end
 
--- Add all current players
+-- Add all current players (excluding whitelisted)
 local function AddAllPlayers()
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Player and not ActiveTargets[player.Name] then
+        if player ~= Player and not IsWhitelisted(player.Name) and not ActiveTargets[player.Name] then
             ActiveTargets[player.Name] = player
         end
     end
@@ -618,7 +629,7 @@ spawn(function()
         local validTargets = {}
         
         for name, player in pairs(ActiveTargets) do
-            if player and player.Parent then
+            if player and player.Parent and not IsWhitelisted(player.Name) then
                 validTargets[name] = player
             else
                 ActiveTargets[name] = nil
@@ -641,11 +652,13 @@ end)
 
 -- Handle new players joining
 Players.PlayerAdded:Connect(function(player)
-    if player ~= Player then
+    if player ~= Player and not IsWhitelisted(player.Name) then
         wait(2)
         ActiveTargets[player.Name] = player
         UpdateStatus()
         Message("Mục Tiêu Mới", player.Name .. " đã được thêm vào danh sách!", 2)
+    elseif IsWhitelisted(player.Name) then
+        Message("Đã Bỏ Qua", player.Name .. " nằm trong whitelist!", 2)
     end
 end)
 
@@ -709,7 +722,7 @@ CloseButton.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Animate UI on load (simplified)
+-- Animate UI on load
 MainFrame.Position = UDim2.new(0.5, -175, 0.5, -300)
 TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
     Position = UDim2.new(0.5, -175, 0.5, -235)
@@ -719,5 +732,10 @@ TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
 AddAllPlayers()
 UpdateFlingedList()
 
--- Success message
-Message("Đã Kích Hoạt!", "Tự động fling tất cả người chơi đang hoạt động!", 3)
+-- Success message with whitelist info
+local whitelistCount = 0
+for _ in pairs(WhitelistedPlayers) do
+    whitelistCount = whitelistCount + 1
+end
+
+Message("Đã Kích Hoạt!", "Tự động fling hoạt động! " .. whitelistCount .. " người trong whitelist sẽ không bị fling.", 4)
