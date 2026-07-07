@@ -135,7 +135,8 @@ local BEANBAG_TP_CFRAME = CFrame.new(-45.22, -96.33, 3118.56)
 local BEANBAG_CHECK_DURATION = 4    -- giây tối đa chờ xem đã rớt khỏi ghế chưa
 local BEANBAG_ARRIVE_TIMEOUT = 3    -- giây tối đa chờ nạn nhân "tới nơi" trước khi cất tool
 local BEANBAG_ARRIVE_RADIUS = 5     -- khoảng cách (studs) coi như đã tới vị trí TP
-local BEANBAG_EXTRA_SETTLE = 0.75   -- chờ thêm sau khi xác nhận đã tới, để đồng bộ mạng ổn định
+local BEANBAG_EXTRA_SETTLE = 1.5    -- chờ thêm sau khi xác nhận đã tới, để đồng bộ mạng ổn định (cất tool lâu hơn)
+local BEANBAG_PRE_TP_DELAY = 0.1    -- chờ rất ngắn trước khi TP, để nạn nhân không kịp đứng dậy/chạy đi
 
 local bbSelectedName = nil
 local bbSeatConnection = nil
@@ -216,13 +217,11 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
     local hrp = targetCharacter:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    local originalCFrame = hrp.CFrame  
-
     local state = { cancelled = false }  
     activeTricks[targetCharacter] = state  
 
-    -- Chờ 1 giây trước khi TP  
-    task.wait(1)  
+    -- TP gần như ngay lập tức (siêu nhanh) để nạn nhân không kịp đứng dậy chạy khỏi ghế  
+    task.wait(BEANBAG_PRE_TP_DELAY)  
     if state.cancelled then return end  
 
     -- Bước 1: TP tới vị trí setting (cao hơn một chút để đứng trên part)  
@@ -275,12 +274,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
         end  
         local dt = task.wait()  
         elapsed += dt  
-    end  
-
-    -- Bước 4: TP nạn nhân về vị trí cũ  
-    local currentHrp2 = targetCharacter:FindFirstChild("HumanoidRootPart")  
-    if currentHrp2 then  
-        currentHrp2.CFrame = originalCFrame  
     end  
 
     activeTricks[targetCharacter] = nil
@@ -412,6 +405,121 @@ Players.PlayerRemoving:Connect(function()
     Dropdown:SetValues(getPlayerNames())
     BeanbagDropdown:SetValues(getPlayerNames())
 end)
+
+-- =========================================================
+-- ============ FEATURE 3: DARK SIGN - NHÁY BẢNG ===========
+-- =========================================================
+MainTab:AddSection("Dark Sign")
+
+-- !!! THAY LINK NÀY BẰNG LINK "RAW" THẬT CỦA FILE ngon.txt TRÊN GITHUB !!!
+-- Ví dụ dạng: https://raw.githubusercontent.com/<user>/<repo>/<branch>/ngon.txt
+local SIGN_TEXT_URL = "https://raw.githubusercontent.com/teddyz7384/teddyzhandsomee-/refs/heads/main/ngon.txt"
+local SIGN_UPDATE_INTERVAL = 0.2 -- giây
+
+local signLines = {}
+local signCycling = false
+local signCurrentIndex = 0
+
+-- Tìm Tool "Dark Sign" dù đang cầm (Character) hay trong Backpack
+local function findDarkSignTool()
+    local character = player.Character
+    if character then
+        local tool = character:FindFirstChild("Dark Sign")
+        if tool then return tool end
+    end
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        local tool = backpack:FindFirstChild("Dark Sign")
+        if tool then return tool end
+    end
+    return nil
+end
+
+-- Tải nội dung ngon.txt và tách thành từng dòng
+local function loadSignLines()
+    local ok, content = pcall(function()
+        return game:HttpGet(SIGN_TEXT_URL)
+    end)
+
+    if not ok or not content or content == "" then
+        Fluent:Notify({ Title = "Dark Sign", Content = "Không tải được ngon.txt", Duration = 3 })
+        return false
+    end
+
+    signLines = {}
+    for line in content:gmatch("[^\r\n]+") do
+        line = line:gsub("^%s+", ""):gsub("%s+$", "") -- bỏ khoảng trắng thừa
+        if line ~= "" then
+            table.insert(signLines, line)
+        end
+    end
+
+    return #signLines > 0
+end
+
+-- Tìm TextLabel trong SignPart > SurfaceGui của tool Dark Sign
+local function getSignTextLabel()
+    local tool = findDarkSignTool()
+    if not tool then return nil end
+    local signPart = tool:FindFirstChild("SignPart")
+    if not signPart then return nil end
+    local surfaceGui = signPart:FindFirstChildOfClass("SurfaceGui")
+    if not surfaceGui then return nil end
+    return surfaceGui:FindFirstChild("TextLabel")
+end
+
+local function startSignCycling()
+    if signCycling then return end -- đã chạy rồi thì thôi
+
+    if #signLines == 0 then
+        if not loadSignLines() then
+            return
+        end
+    end
+
+    local textLabel = getSignTextLabel()
+    if not textLabel then
+        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy bảng (Dark Sign chưa có trong Backpack/tay)", Duration = 3 })
+        return
+    end
+
+    signCycling = true
+    signCurrentIndex = 1
+    textLabel.Text = signLines[signCurrentIndex]
+
+    Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng", Duration = 2 })
+
+    task.spawn(function()
+        while signCycling do
+            task.wait(SIGN_UPDATE_INTERVAL)
+            if not signCycling then break end
+            if #signLines == 0 then break end
+
+            signCurrentIndex = (signCurrentIndex % #signLines) + 1
+            local label = getSignTextLabel()
+            if label then
+                label.Text = signLines[signCurrentIndex]
+            end
+        end
+    end)
+end
+
+local function stopSignCycling()
+    signCycling = false
+end
+
+MainTab:AddToggle("SignBlinkToggle", {
+    Title = "Bật/Tắt Nháy Bảng",
+    Default = false,
+    Callback = function(value)
+        if value then
+            startSignCycling()
+        else
+            stopSignCycling()
+            Fluent:Notify({ Title = "Dark Sign", Content = "Đã tắt nháy bảng", Duration = 2 })
+        end
+    end
+})
 
 Fluent:Notify({
     Title = "Thành Phố Vina RP ❄️",
