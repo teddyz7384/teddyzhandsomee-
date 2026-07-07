@@ -70,10 +70,35 @@ local function createUIToggleButton()
     local function toggleUI()
         uiVisible = not uiVisible
         
-        -- Lấy ScreenGui của Fluent
-        local fluentGui = Window._screenGui or Window:GetGui()
+        -- Tìm ScreenGui của Fluent trong PlayerGui
+        local fluentGui = nil
+        for _, gui in ipairs(player.PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Name:find("Fluent") then
+                fluentGui = gui
+                break
+            end
+        end
+        
+        -- Nếu không tìm thấy, thử tìm theo tên khác
+        if not fluentGui then
+            for _, gui in ipairs(player.PlayerGui:GetChildren()) do
+                if gui:IsA("ScreenGui") and gui:FindFirstChild("Main") then
+                    fluentGui = gui
+                    break
+                end
+            end
+        end
+        
         if fluentGui then
             fluentGui.Enabled = uiVisible
+        else
+            -- Fallback: tìm bằng cách lấy con của Window
+            if Window._container then
+                local parent = Window._container.Parent
+                if parent and parent:IsA("ScreenGui") then
+                    parent.Enabled = uiVisible
+                end
+            end
         end
         
         -- Đổi màu nút để hiển thị trạng thái
@@ -210,7 +235,7 @@ MainTab:AddSection("BeanBag Red")
 
 local BEANBAG_TP_CFRAME = CFrame.new(-45.22, -96.33, 3118.56)
 local BEANBAG_CHECK_DURATION = 4
-local BEANBAG_ARRIVE_TIMEOUT = 3
+local BEANBAG_ARRIVE_TIMEOUT = 2
 local BEANBAG_ARRIVE_RADIUS = 5
 local BEANBAG_EXTRA_SETTLE = 1.5
 local BEANBAG_PRE_TP_DELAY = 0.1
