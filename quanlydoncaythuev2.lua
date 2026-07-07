@@ -12,6 +12,12 @@ local currentTargetName = nil
 -- ====== Load Fluent UI ======
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
+-- Kiểm tra Fluent có được tải không
+if not Fluent then
+    warn("Không thể tải Fluent UI")
+    return
+end
+
 local Window = Fluent:CreateWindow({
     Title = "Thành Phố Vina RP ❄️",
     SubTitle = "made by snow family",
@@ -21,22 +27,25 @@ local Window = Fluent:CreateWindow({
     Theme = "Dark"
 })
 
+if not Window then
+    warn("Không thể tạo Window")
+    return
+end
+
 local MainTab = Window:AddTab({ Title = "Main", Icon = "shirt" })
 Window:SelectTab(1)
 
 -- ====== Tạo nút toggle UI trên màn hình (cho mobile) ======
 local function createUIToggleButton()
-    -- Tạo ScreenGui
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "UIToggleGUI"
     screenGui.ResetOnSpawn = false
     screenGui.Parent = player.PlayerGui
     
-    -- Tạo nút bấm
     local button = Instance.new("TextButton")
     button.Name = "ToggleButton"
     button.Size = UDim2.new(0, 60, 0, 60)
-    button.Position = UDim2.new(1, -70, 0.5, -30) -- Góc phải màn hình
+    button.Position = UDim2.new(1, -70, 0.5, -30)
     button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     button.BackgroundTransparency = 0.2
     button.Text = "UI"
@@ -47,12 +56,10 @@ local function createUIToggleButton()
     button.BorderSizePixel = 0
     button.Parent = screenGui
     
-    -- Thêm hiệu ứng bo tròn
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(1, 0)
     corner.Parent = button
     
-    -- Thêm hiệu ứng hover (cho PC)
     button.MouseEnter:Connect(function()
         button.BackgroundTransparency = 0.1
         button.Size = UDim2.new(0, 65, 0, 65)
@@ -63,14 +70,11 @@ local function createUIToggleButton()
         button.Size = UDim2.new(0, 60, 0, 60)
     end)
     
-    -- Biến trạng thái UI
     local uiVisible = true
     
-    -- Hàm toggle UI
     local function toggleUI()
         uiVisible = not uiVisible
         
-        -- Tìm ScreenGui của Fluent trong PlayerGui
         local fluentGui = nil
         for _, gui in ipairs(player.PlayerGui:GetChildren()) do
             if gui:IsA("ScreenGui") and gui.Name:find("Fluent") then
@@ -79,7 +83,6 @@ local function createUIToggleButton()
             end
         end
         
-        -- Nếu không tìm thấy, thử tìm theo tên khác
         if not fluentGui then
             for _, gui in ipairs(player.PlayerGui:GetChildren()) do
                 if gui:IsA("ScreenGui") and gui:FindFirstChild("Main") then
@@ -92,7 +95,6 @@ local function createUIToggleButton()
         if fluentGui then
             fluentGui.Enabled = uiVisible
         else
-            -- Fallback: tìm bằng cách lấy con của Window
             if Window._container then
                 local parent = Window._container.Parent
                 if parent and parent:IsA("ScreenGui") then
@@ -101,7 +103,6 @@ local function createUIToggleButton()
             end
         end
         
-        -- Đổi màu nút để hiển thị trạng thái
         if uiVisible then
             button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
             button.Text = "UI"
@@ -113,16 +114,12 @@ local function createUIToggleButton()
         end
     end
     
-    -- Sự kiện click
     button.MouseButton1Click:Connect(toggleUI)
-    
-    -- Bắt sự kiện touch (cho mobile)
     button.TouchTap:Connect(toggleUI)
     
     return button
 end
 
--- Tạo nút toggle
 local toggleButton = createUIToggleButton()
 
 -- ====== Danh sách người chơi (dùng chung) ======
@@ -245,6 +242,7 @@ local bbSeatConnection = nil
 local currentBeanbagTool = nil
 local scriptRemovingTool = false
 local beanbagEnabled = false
+local followToggleValue = false
 
 local activeTricks = {}
 
@@ -294,7 +292,13 @@ local function startFollow(targetName)
         local myHRP = myChar:FindFirstChild("HumanoidRootPart")  
         local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")  
         if myHRP and targetHRP then  
-            myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)  
+            -- Tăng tốc độ bám bằng cách cập nhật CFrame liên tục
+            myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
+            -- Đồng bộ vận tốc để bám nhanh hơn
+            local humanoid = myChar:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = 50 -- Tăng tốc độ di chuyển
+            end
         end  
     end)
 end
@@ -424,6 +428,10 @@ local function hookCharacter(character)
     character.ChildAdded:Connect(function(child)
         if child:IsA("Tool") and child.Name == "BeanBag Red" then
             onBeanbagEquipped(child)
+            -- Tự động bật follow khi có tool
+            if followToggleValue and bbSelectedName then
+                startFollow(bbSelectedName)
+            end
         end
     end)
     character.ChildRemoved:Connect(function(child)
@@ -451,13 +459,18 @@ local BeanbagDropdown = MainTab:AddDropdown("BeanbagPlayerDropdown", {
                 onBeanbagEquipped(tool)
             end
         end
+        -- Tự động cập nhật follow khi đổi người
+        if followToggleValue and value then
+            startFollow(value)
+        end
     end
 })
 
-MainTab:AddToggle("FollowToggle", {
+local followToggle = MainTab:AddToggle("FollowToggle", {
     Title = "Bật/Tắt Bám Theo",
     Default = false,
     Callback = function(value)
+        followToggleValue = value
         if value then
             if bbSelectedName then
                 startFollow(bbSelectedName)
@@ -498,15 +511,12 @@ end)
 -- =========================================================
 MainTab:AddSection("Dark Sign")
 
--- Tìm RemoteEvent UpdateSign trong tool
 local function getUpdateSignRemote(tool)
     if not tool then return nil end
-    -- Tìm trong tool trước
     local remote = tool:FindFirstChild("UpdateSign")
     if remote and remote:IsA("RemoteEvent") then
         return remote
     end
-    -- Tìm trong các con của tool
     for _, child in ipairs(tool:GetDescendants()) do
         if child:IsA("RemoteEvent") and child.Name == "UpdateSign" then
             return child
@@ -515,7 +525,6 @@ local function getUpdateSignRemote(tool)
     return nil
 end
 
--- Lấy tool Dark Sign
 local function findDarkSignTool()
     local character = player.Character
     if character then
@@ -530,10 +539,9 @@ local function findDarkSignTool()
     return nil
 end
 
--- Gửi yêu cầu update bảng qua RemoteEvent (có kiểm soát tốc độ)
 local signQueue = {}
 local isProcessingQueue = false
-local SIGN_SEND_INTERVAL = 0.3 -- Khoảng cách thời gian giữa các lần gửi (300ms)
+local SIGN_SEND_INTERVAL = 0.3
 
 local function sendSignUpdate(text)
     local tool = findDarkSignTool()
@@ -551,7 +559,6 @@ local function processSignQueue()
     
     isProcessingQueue = true
     
-    -- Gửi tất cả các tin nhắn trong queue với khoảng cách thời gian
     local function sendNext()
         if #signQueue == 0 then
             isProcessingQueue = false
@@ -562,12 +569,10 @@ local function processSignQueue()
         local success = sendSignUpdate(text)
         
         if not success then
-            -- Nếu gửi thất bại, thử lại sau 0.5s
             task.wait(0.5)
             table.insert(signQueue, 1, text)
         end
         
-        -- Chờ khoảng thời gian quy định trước khi gửi tin tiếp theo
         task.wait(SIGN_SEND_INTERVAL)
         sendNext()
     end
@@ -575,7 +580,6 @@ local function processSignQueue()
     task.spawn(sendNext)
 end
 
--- Hàm thêm tin nhắn vào queue
 local function queueSignUpdate(text)
     if text and text ~= "" then
         table.insert(signQueue, text)
@@ -583,7 +587,6 @@ local function queueSignUpdate(text)
     end
 end
 
--- Đọc danh sách câu từ file
 local SIGN_TEXT_URL = "https://raw.githubusercontent.com/teddyz7384/teddyzhandsomee-/refs/heads/main/ngon.txt"
 local signLines = {}
 local signCycling = false
@@ -624,7 +627,6 @@ local function startSignCycling()
         end
     end
 
-    -- Kiểm tra tool
     local tool = findDarkSignTool()
     if not tool then
         Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy Sign trong Backpack/tay", Duration = 3 })
@@ -634,12 +636,10 @@ local function startSignCycling()
     signCycling = true
     signCurrentIndex = 1
     
-    -- Thêm câu đầu tiên vào queue
     queueSignUpdate(signLines[signCurrentIndex])
     
     Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng", Duration = 2 })
 
-    -- Hủy task cũ nếu có
     if signCycleTask then
         task.cancel(signCycleTask)
         signCycleTask = nil
@@ -647,7 +647,7 @@ local function startSignCycling()
 
     signCycleTask = task.spawn(function()
         while signCycling do
-            task.wait(SIGN_SEND_INTERVAL * 0.5) -- Đợi một nửa khoảng thời gian
+            task.wait(SIGN_SEND_INTERVAL * 0.5)
             if not signCycling then break end
             if #signLines == 0 then break end
 
@@ -663,7 +663,6 @@ local function stopSignCycling()
         task.cancel(signCycleTask)
         signCycleTask = nil
     end
-    -- Xóa queue
     signQueue = {}
     isProcessingQueue = false
 end
@@ -681,7 +680,6 @@ MainTab:AddToggle("SignBlinkToggle", {
     end
 })
 
--- Thêm nút reset cho queue (nếu cần)
 MainTab:AddButton({
     Title = "Reset Queue",
     Callback = function()
