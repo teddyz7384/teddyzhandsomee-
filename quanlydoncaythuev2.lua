@@ -407,7 +407,7 @@ end)
 MainTab:AddSection("Dark Sign")
 
 -- !!! THAY LINK NÀY BẰNG LINK "RAW" THẬT CỦA FILE ngon.txt TRÊN GITHUB !!!
-local SIGN_TEXT_URL = "https://raw.githubusercontent.com/USERNAME/REPO/BRANCH/ngon.txt"
+local SIGN_TEXT_URL = "https://raw.githubusercontent.com/teddyz7384/teddyzhandsomee-/refs/heads/main/ngon.txt"
 local SIGN_UPDATE_INTERVAL = 1
 
 local signLines = {}
