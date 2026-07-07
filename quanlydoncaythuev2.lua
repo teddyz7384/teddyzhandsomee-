@@ -270,7 +270,7 @@ local beanbagEnabled = false
 local followToggleValue = false
 
 local activeTricks = {}
-local teleportLock = {} -- Lock để ngăn TP nhiều lần
+local teleportLock = {}
 
 local platformPart = nil
 local function createPlatform()
@@ -341,21 +341,18 @@ local function findSeatInTool(tool)
         or propSeat:FindFirstChildWhichIsA("VehicleSeat", true)
 end
 
--- Hàm giữ vị trí cho nhân vật - FIX LỖI TP
 local function holdPosition(character, targetCFrame)
     if not character or not targetCFrame then return end
     
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
     
-    -- Xóa các Body cũ
     for _, child in ipairs(hrp:GetChildren()) do
         if child:IsA("BodyPosition") or child:IsA("BodyGyro") or child:IsA("BodyVelocity") then
             child:Destroy()
         end
     end
     
-    -- Tạo BodyPosition để giữ vị trí
     local bodyPosition = Instance.new("BodyPosition")
     bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
     bodyPosition.P = 2000
@@ -363,7 +360,6 @@ local function holdPosition(character, targetCFrame)
     bodyPosition.Position = targetCFrame.Position
     bodyPosition.Parent = hrp
     
-    -- Tạo BodyGyro để giữ hướng
     local bodyGyro = Instance.new("BodyGyro")
     bodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000)
     bodyGyro.P = 2000
@@ -371,7 +367,6 @@ local function holdPosition(character, targetCFrame)
     bodyGyro.CFrame = targetCFrame
     bodyGyro.Parent = hrp
     
-    -- Tự động xóa sau 2 giây
     task.delay(2, function()
         if bodyPosition and bodyPosition.Parent then
             bodyPosition:Destroy()
@@ -384,9 +379,7 @@ local function holdPosition(character, targetCFrame)
     return bodyPosition, bodyGyro
 end
 
--- FIX: Cải thiện hàm playBeanbagTrick để TP chính xác hơn
 local function playBeanbagTrick(targetCharacter, seat, equippedTool)
-    -- Kiểm tra lock để tránh TP nhiều lần
     if teleportLock[targetCharacter] then
         return
     end
@@ -407,7 +400,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
     local targetPos = BEANBAG_TP_CFRAME.Position + Vector3.new(0, 1.5, 0)
     local targetCFrame = CFrame.new(targetPos)
     
-    -- FIX: Đảm bảo TP chính xác bằng nhiều cách
     local function forceTeleport(char)
         local hrpNow = char:FindFirstChild("HumanoidRootPart")
         if not hrpNow then return false end
@@ -416,7 +408,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
         hrpNow.Velocity = Vector3.new(0, 0, 0)
         hrpNow.RotVelocity = Vector3.new(0, 0, 0)
         
-        -- Kiểm tra nếu chưa đến nơi thì TP lại
         task.wait(0.1)
         if (hrpNow.Position - targetPos).Magnitude > 2 then
             hrpNow.CFrame = targetCFrame
@@ -424,16 +415,12 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
             hrpNow.RotVelocity = Vector3.new(0, 0, 0)
         end
         
-        -- Giữ vị trí bằng BodyPosition
         holdPosition(char, targetCFrame)
-        
         return true
     end
     
-    -- TP lần đầu
     forceTeleport(targetCharacter)
     
-    -- Giữ vị trí và kiểm tra đến nơi
     local arriveElapsed = 0  
     while arriveElapsed < BEANBAG_ARRIVE_TIMEOUT and not state.cancelled do  
         local hrpNow = targetCharacter:FindFirstChild("HumanoidRootPart")  
@@ -442,7 +429,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
             if dist <= BEANBAG_ARRIVE_RADIUS then  
                 break  
             end  
-            -- Nếu bị đẩy ra xa, TP lại
             if dist > BEANBAG_ARRIVE_RADIUS * 1.5 then
                 forceTeleport(targetCharacter)
             end
@@ -462,7 +448,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
         return 
     end  
 
-    -- Đợi người ngồi vào ghế
     local waitCount = 0
     repeat
         task.wait(0.1)
@@ -471,7 +456,7 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
             teleportLock[targetCharacter] = nil
             return 
         end
-        if waitCount > 50 then -- Timeout 5 giây
+        if waitCount > 50 then
             break
         end
     until seat.Occupant == nil or (seat.Occupant and seat.Occupant.Parent == targetCharacter)
@@ -481,7 +466,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
         return 
     end
 
-    -- Xóa tool nếu đang cầm
     if equippedTool and equippedTool.Parent == player.Character then
         scriptRemovingTool = true
         equippedTool.Parent = player.Backpack
@@ -490,10 +474,8 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
         end)
     end
 
-    -- Kiểm tra trong thời gian BEANBAG_CHECK_DURATION
     local elapsed = 0  
     local checkInterval = 0.1
-    local maxCheck = BEANBAG_CHECK_DURATION / checkInterval
     
     while elapsed < BEANBAG_CHECK_DURATION and not state.cancelled do  
         local occ = seat.Occupant  
@@ -502,12 +484,10 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
             break  
         end  
         
-        -- Liên tục kiểm tra và giữ vị trí
         local hrpNow = targetCharacter:FindFirstChild("HumanoidRootPart")
         if hrpNow then
             local dist = (hrpNow.Position - targetPos).Magnitude
             if dist > BEANBAG_ARRIVE_RADIUS then
-                -- FIX: TP lại nếu bị đẩy ra
                 hrpNow.CFrame = targetCFrame
                 hrpNow.Velocity = Vector3.new(0, 0, 0)
                 holdPosition(targetCharacter, targetCFrame)
@@ -518,7 +498,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
         elapsed += checkInterval  
     end  
 
-    -- Xóa lock
     teleportLock[targetCharacter] = nil
     activeTricks[targetCharacter] = nil
 end
@@ -873,19 +852,114 @@ local signTextInput = SignTab:AddInput("SignTextInput", {
     Default = "Ae snow no1 vina rp",
     Placeholder = "Nhập text cho sign...",
     Callback = function(value)
-        -- Lưu text để dùng cho đặt sign
         _G.SignText = value
     end
 })
 
--- Set default text
 _G.SignText = "Ae snow no1 vina rp"
 
 local signPlacerEnabled = false
 local signPlacerTask = nil
-local placeRadius = 10 -- Bán kính đặt sign xung quanh nhân vật
+local placeRadius = 10
 
--- Hàm tìm tool Big Red Sign
+-- =========================================================
+-- ====== TÌM REMOTEEVENT TRONG TOOLPROPSERVICE ===========
+-- =========================================================
+local function findToolPropService()
+    -- Tìm Knit.Services
+    local knit = game:GetService("ReplicatedStorage"):FindFirstChild("Knit")
+    if not knit then
+        -- Thử tìm trong Workspace
+        knit = workspace:FindFirstChild("Knit")
+    end
+    if not knit then
+        -- Thử tìm trong Player
+        knit = player:FindFirstChild("Knit")
+    end
+    if not knit then
+        return nil
+    end
+    
+    local services = knit:FindFirstChild("Services")
+    if not services then
+        return nil
+    end
+    
+    local toolPropService = services:FindFirstChild("ToolPropService")
+    return toolPropService
+end
+
+-- Hàm tìm RemoteEvent từ ToolPropService
+local function findRemoteFromToolPropService(remoteName)
+    local toolPropService = findToolPropService()
+    if not toolPropService then
+        return nil
+    end
+    
+    -- Tìm RemoteEvent theo tên
+    local remote = toolPropService:FindFirstChild(remoteName)
+    if remote and remote:IsA("RemoteEvent") then
+        return remote
+    end
+    
+    -- Tìm trong tất cả children
+    for _, child in ipairs(toolPropService:GetChildren()) do
+        if child:IsA("RemoteEvent") and child.Name == remoteName then
+            return child
+        end
+    end
+    
+    return nil
+end
+
+-- Hàm tìm tất cả RemoteEvent trong ToolPropService
+local function findAllRemotesInToolPropService()
+    local toolPropService = findToolPropService()
+    if not toolPropService then
+        return {}
+    end
+    
+    local remotes = {}
+    for _, child in ipairs(toolPropService:GetChildren()) do
+        if child:IsA("RemoteEvent") then
+            table.insert(remotes, {
+                Name = child.Name,
+                Object = child
+            })
+        end
+    end
+    return remotes
+end
+
+-- Hàm tìm remote tốt nhất cho việc đặt sign
+local function findBestRemoteForPlace()
+    local remotes = findAllRemotesInToolPropService()
+    
+    -- Danh sách ưu tiên
+    local priorityNames = {
+        "PlaceToolVisual", "Place", "Deploy", "Spawn", "Create",
+        "AddToBackpack", "EquipTool", "PlaceSign"
+    }
+    
+    for _, priorityName in ipairs(priorityNames) do
+        for _, remote in ipairs(remotes) do
+            if remote.Name:lower():find(priorityName:lower()) then
+                return remote.Object
+            end
+        end
+    end
+    
+    -- Nếu không tìm thấy, trả về remote đầu tiên
+    if #remotes > 0 then
+        return remotes[1].Object
+    end
+    
+    return nil
+end
+
+-- =========================================================
+-- ====== TÌM TOOL BIG RED SIGN ============================
+-- =========================================================
 local function findBigRedSignTool()
     local character = player.Character
     if character then
@@ -900,47 +974,9 @@ local function findBigRedSignTool()
     return nil
 end
 
--- Hàm tìm RemoteEvent để đặt sign
-local function getPlaceSignRemote(tool)
-    if not tool then return nil end
-    
-    -- Kiểm tra các remote thường gặp
-    local remoteNames = {"PlaceSign", "Place", "Deploy", "Spawn"}
-    for _, name in ipairs(remoteNames) do
-        local remote = tool:FindFirstChild(name)
-        if remote and remote:IsA("RemoteEvent") then
-            return remote
-        end
-    end
-    
-    -- Tìm trong tất cả descendants
-    for _, child in ipairs(tool:GetDescendants()) do
-        if child:IsA("RemoteEvent") then
-            local childName = child.Name:lower()
-            if childName:find("place") or childName:find("sign") or childName:find("deploy") then
-                return child
-            end
-        end
-    end
-    
-    return nil
-end
-
--- Hàm tìm RemoteEvent để update text cho sign đã đặt
-local function getUpdatePlacedSignRemote(signPart)
-    if not signPart then return nil end
-    
-    -- Kiểm tra các remote trong sign đã đặt
-    for _, child in ipairs(signPart:GetDescendants()) do
-        if child:IsA("RemoteEvent") and (child.Name:lower():find("update") or child.Name:lower():find("text")) then
-            return child
-        end
-    end
-    
-    return nil
-end
-
--- Hàm tạo vị trí ngẫu nhiên gần nhân vật
+-- =========================================================
+-- ====== TẠO VỊ TRÍ NGẪU NHIÊN ===========================
+-- =========================================================
 local function getRandomPlacePosition()
     local character = player.Character
     if not character then return nil end
@@ -952,16 +988,14 @@ local function getRandomPlacePosition()
     local angle = math.random() * 2 * math.pi
     local distance = math.random() * placeRadius
     
-    -- Đảm bảo không đặt quá xa
     if distance < 2 then distance = 2 end
     
     local newPos = pos + Vector3.new(
         math.cos(angle) * distance,
-        0, -- Giữ nguyên Y để đặt trên mặt đất
+        0,
         math.sin(angle) * distance
     )
     
-    -- Kiểm tra vị trí có hợp lệ không (không quá cao hoặc thấp)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.FilterDescendantsInstances = {character}
@@ -977,62 +1011,84 @@ local function getRandomPlacePosition()
     return newPos
 end
 
--- Hàm đặt sign
+-- =========================================================
+-- ====== ĐẶT SIGN ========================================
+-- =========================================================
 local function placeBigRedSign()
+    -- Tìm tool
     local tool = findBigRedSignTool()
     if not tool then
         if Fluent and Fluent.Notify then
-            Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy Big Red Sign trong Backpack/tay", Duration = 2 })
+            Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy Big Red Sign", Duration = 2 })
         end
         return false
     end
     
-    local remote = getPlaceSignRemote(tool)
+    -- Tìm remote từ ToolPropService
+    local remote = findBestRemoteForPlace()
     if not remote then
         if Fluent and Fluent.Notify then
-            Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy RemoteEvent để đặt sign", Duration = 2 })
+            Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy RemoteEvent", Duration = 2 })
         end
         return false
     end
     
-    -- Lấy vị trí ngẫu nhiên
+    -- Lấy vị trí
     local pos = getRandomPlacePosition()
     if not pos then
         return false
     end
     
-    -- Gửi remote để đặt sign
-    local success, err = pcall(function()
-        -- Thử các cách gửi khác nhau
-        remote:FireServer(pos, _G.SignText or "Ae snow no1 vina rp")
+    -- Gửi remote với nhiều cách khác nhau
+    local success = false
+    local text = _G.SignText or "Ae snow no1 vina rp"
+    
+    -- Cách 1: Gửi với vị trí và text
+    success, err = pcall(function()
+        remote:FireServer(pos, text)
     end)
     
     if not success then
-        -- Thử cách khác nếu fail
-        pcall(function()
+        -- Cách 2: Gửi với vị trí
+        success, err = pcall(function()
             remote:FireServer(pos)
         end)
     end
     
-    return true
+    if not success then
+        -- Cách 3: Gửi với text
+        success, err = pcall(function()
+            remote:FireServer(text)
+        end)
+    end
+    
+    if not success then
+        -- Cách 4: Gửi trống
+        success, err = pcall(function()
+            remote:FireServer()
+        end)
+    end
+    
+    return success
 end
 
--- Hàm đặt nhiều sign liên tục
+-- =========================================================
+-- ====== BẬT/TẮT ĐẶT SIGN LIÊN TỤC =======================
+-- =========================================================
 local function startSignPlacer()
     if signPlacerEnabled then return end
     
-    -- Kiểm tra tool
     local tool = findBigRedSignTool()
     if not tool then
         if Fluent and Fluent.Notify then
-            Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy Big Red Sign trong Backpack/tay", Duration = 3 })
+            Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy Big Red Sign", Duration = 3 })
         end
         return
     end
     
     signPlacerEnabled = true
     
-    -- Lấy tool ra tay nếu đang ở Backpack
+    -- Đưa tool lên tay nếu đang ở Backpack
     if tool.Parent == player:FindFirstChild("Backpack") then
         local character = player.Character
         if character then
@@ -1044,22 +1100,18 @@ local function startSignPlacer()
         Fluent:Notify({ Title = "Big Red Sign", Content = "Đang đặt sign liên tục...", Duration = 2 })
     end
     
-    -- Bắt đầu vòng lặp đặt sign
     signPlacerTask = task.spawn(function()
         local placeCount = 0
         while signPlacerEnabled do
             local success = placeBigRedSign()
             if success then
                 placeCount = placeCount + 1
-                -- Thỉnh thoảng thông báo
                 if placeCount % 5 == 0 then
                     if Fluent and Fluent.Notify then
                         Fluent:Notify({ Title = "Big Red Sign", Content = "Đã đặt " .. placeCount .. " sign", Duration = 1 })
                     end
                 end
             end
-            
-            -- Đợi một chút trước khi đặt tiếp
             task.wait(0.2)
         end
     end)
@@ -1076,6 +1128,9 @@ local function stopSignPlacer()
     end
 end
 
+-- =========================================================
+-- ====== UI TRONG TAB SIGN ================================
+-- =========================================================
 -- Toggle đặt sign
 SignTab:AddToggle("SignPlacerToggle", {
     Title = "Bật/Tắt Đặt Sign Liên Tục",
@@ -1089,8 +1144,8 @@ SignTab:AddToggle("SignPlacerToggle", {
     end
 })
 
--- Điều chỉnh bán kính đặt sign
-local radiusSlider = SignTab:AddSlider("RadiusSlider", {
+-- Điều chỉnh bán kính
+SignTab:AddSlider("RadiusSlider", {
     Title = "Bán kính đặt",
     Description = "Khoảng cách đặt sign xung quanh nhân vật",
     Default = 10,
@@ -1110,20 +1165,61 @@ SignTab:AddButton({
     end
 })
 
--- Nút làm sạch sign (tìm và xóa)
+-- Nút tìm RemoteEvent trong ToolPropService
+SignTab:AddButton({
+    Title = "🔍 Tìm RemoteEvent",
+    Callback = function()
+        local remotes = findAllRemotesInToolPropService()
+        if #remotes > 0 then
+            local msg = "Tìm thấy " .. #remotes .. " RemoteEvent:\n"
+            for i, remote in ipairs(remotes) do
+                msg = msg .. i .. ". " .. remote.Name .. "\n"
+            end
+            if Fluent and Fluent.Notify then
+                Fluent:Notify({ Title = "RemoteEvent", Content = msg, Duration = 5 })
+            end
+            print(msg)
+        else
+            if Fluent and Fluent.Notify then
+                Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy RemoteEvent nào!", Duration = 3 })
+            end
+        end
+    end
+})
+
+-- Nút tìm Remote tốt nhất
+SignTab:AddButton({
+    Title = "🎯 Tìm Remote Tốt Nhất",
+    Callback = function()
+        local bestRemote = findBestRemoteForPlace()
+        if bestRemote then
+            if Fluent and Fluent.Notify then
+                Fluent:Notify({ Title = "🎯 Tìm thấy", Content = "Remote tốt nhất: " .. bestRemote.Name, Duration = 4 })
+            end
+            print("=== Big Red Sign Remote Info ===")
+            print("Best Remote: " .. bestRemote.Name)
+            print("Path: " .. bestRemote:GetFullName())
+            print("Parent: " .. (bestRemote.Parent and bestRemote.Parent.Name or "Unknown"))
+            print("==================================")
+        else
+            if Fluent and Fluent.Notify then
+                Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy RemoteEvent nào!", Duration = 3 })
+            end
+        end
+    end
+})
+
+-- Nút làm sạch sign
 SignTab:AddButton({
     Title = "Làm sạch Sign đã đặt",
     Callback = function()
         local count = 0
-        -- Tìm sign trong workspace
         for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("Part") and obj.Name:find("Sign") then
-                -- Kiểm tra xem có phải sign của player không
+            if obj:IsA("Part") and (obj.Name:find("Sign") or obj.Name:find("sign")) then
                 local ownerLabel = obj:FindFirstChild("OwnerLabel")
                 if ownerLabel and ownerLabel:IsA("SurfaceGui") then
                     local textLabel = ownerLabel:FindFirstChild("TextLabel")
                     if textLabel and textLabel:IsA("TextLabel") then
-                        -- Xóa sign
                         local parent = obj.Parent
                         if parent then
                             parent:Destroy()
