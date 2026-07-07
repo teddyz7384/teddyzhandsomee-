@@ -429,26 +429,60 @@ local function findDarkSignTool()
     return nil
 end
 
--- Gửi yêu cầu update bảng qua RemoteEvent
-local function updateSignViaRemote(text)
+-- Gửi yêu cầu update bảng qua RemoteEvent (có kiểm soát tốc độ)
+local signQueue = {}
+local isProcessingQueue = false
+local SIGN_SEND_INTERVAL = 0.3 -- Khoảng cách thời gian giữa các lần gửi (300ms)
+
+local function sendSignUpdate(text)
     local tool = findDarkSignTool()
-    if not tool then
-        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy Dark Sign trong Backpack/tay", Duration = 3 })
-        return false
-    end
+    if not tool then return false end
     
     local remote = getUpdateSignRemote(tool)
-    if not remote then
-        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy RemoteEvent UpdateSign trong tool", Duration = 3 })
-        return false
-    end
+    if not remote then return false end
     
-    -- Gửi yêu cầu update bảng lên server
     remote:FireServer(text)
     return true
 end
 
--- Đọc danh sách câu từ file (tùy chọn, vẫn giữ để có thể đọc từ file nếu muốn)
+local function processSignQueue()
+    if isProcessingQueue or #signQueue == 0 then return end
+    
+    isProcessingQueue = true
+    
+    -- Gửi tất cả các tin nhắn trong queue với khoảng cách thời gian
+    local function sendNext()
+        if #signQueue == 0 then
+            isProcessingQueue = false
+            return
+        end
+        
+        local text = table.remove(signQueue, 1)
+        local success = sendSignUpdate(text)
+        
+        if not success then
+            -- Nếu gửi thất bại, thử lại sau 0.5s
+            task.wait(0.5)
+            table.insert(signQueue, 1, text)
+        end
+        
+        -- Chờ khoảng thời gian quy định trước khi gửi tin tiếp theo
+        task.wait(SIGN_SEND_INTERVAL)
+        sendNext()
+    end
+    
+    task.spawn(sendNext)
+end
+
+-- Hàm thêm tin nhắn vào queue
+local function queueSignUpdate(text)
+    if text and text ~= "" then
+        table.insert(signQueue, text)
+        processSignQueue()
+    end
+end
+
+-- Đọc danh sách câu từ file
 local SIGN_TEXT_URL = "https://raw.githubusercontent.com/teddyz7384/teddyzhandsomee-/refs/heads/main/ngon.txt"
 local signLines = {}
 local signCycling = false
@@ -460,7 +494,6 @@ local function loadSignLines()
     end)
 
     if not ok or not content or content == "" then
-        -- Nếu không tải được, dùng danh sách mặc định
         signLines = {
             "Ae snow no1 vina rp",
         }
@@ -478,7 +511,8 @@ local function loadSignLines()
     return #signLines > 0
 end
 
--- Hàm chính để nháy bảng (gửi qua RemoteEvent)
+local signCycleTask = nil
+
 local function startSignCycling()
     if signCycling then return end
 
@@ -489,52 +523,48 @@ local function startSignCycling()
         end
     end
 
-    -- Kiểm tra tool và remote
+    -- Kiểm tra tool
     local tool = findDarkSignTool()
     if not tool then
         Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy Sign trong Backpack/tay", Duration = 3 })
-        return
-    end
-    
-    local remote = getUpdateSignRemote(tool)
-    if not remote then
-        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy UpdateSign trong tool", Duration = 3 })
         return
     end
 
     signCycling = true
     signCurrentIndex = 1
     
-    -- Gửi câu đầu tiên
-    updateSignViaRemote(signLines[signCurrentIndex])
+    -- Thêm câu đầu tiên vào queue
+    queueSignUpdate(signLines[signCurrentIndex])
     
     Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng", Duration = 2 })
 
-    task.spawn(function()
+    -- Hủy task cũ nếu có
+    if signCycleTask then
+        task.cancel(signCycleTask)
+        signCycleTask = nil
+    end
+
+    signCycleTask = task.spawn(function()
         while signCycling do
-            task.wait(0.06) -- Đã đổi từ 1s xuống 0.3s
+            task.wait(SIGN_SEND_INTERVAL * 0.5) -- Đợi một nửa khoảng thời gian
             if not signCycling then break end
             if #signLines == 0 then break end
 
             signCurrentIndex = (signCurrentIndex % #signLines) + 1
-            local success = updateSignViaRemote(signLines[signCurrentIndex])
-            
-            -- Nếu gửi thất bại, thử tìm lại tool và remote
-            if not success then
-                local toolRetry = findDarkSignTool()
-                if toolRetry then
-                    local remoteRetry = getUpdateSignRemote(toolRetry)
-                    if remoteRetry then
-                        remoteRetry:FireServer(signLines[signCurrentIndex])
-                    end
-                end
-            end
+            queueSignUpdate(signLines[signCurrentIndex])
         end
     end)
 end
 
 local function stopSignCycling()
     signCycling = false
+    if signCycleTask then
+        task.cancel(signCycleTask)
+        signCycleTask = nil
+    end
+    -- Xóa queue
+    signQueue = {}
+    isProcessingQueue = false
 end
 
 MainTab:AddToggle("SignBlinkToggle", {
@@ -547,6 +577,16 @@ MainTab:AddToggle("SignBlinkToggle", {
             stopSignCycling()
             Fluent:Notify({ Title = "Dark Sign", Content = "Đã tắt nháy bảng", Duration = 2 })
         end
+    end
+})
+
+-- Thêm nút reset cho queue (nếu cần)
+MainTab:AddButton({
+    Title = "Reset Queue",
+    Callback = function()
+        signQueue = {}
+        isProcessingQueue = false
+        Fluent:Notify({ Title = "Dark Sign", Content = "Đã reset queue", Duration = 2 })
     end
 })
 
