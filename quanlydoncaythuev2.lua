@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
 local SHIRT_ID = 3204384330
@@ -9,26 +10,50 @@ local connections = {}
 local toggledOn = true
 local currentTargetName = nil
 
--- ====== Load Fluent UI ======
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+-- ====== Load Fluent UI với xử lý lỗi ======
+local Fluent
+local success, err = pcall(function()
+    Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+end)
 
--- Kiểm tra Fluent có được tải không
-if not Fluent then
-    warn("Không thể tải Fluent UI")
+if not success or not Fluent then
+    warn("Không thể tải Fluent UI:", err)
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Parent = player.PlayerGui
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 200)
+    frame.Position = UDim2.new(0.5, -150, 0.5, -100)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.Parent = screenGui
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 1, -20)
+    label.Position = UDim2.new(0, 10, 0, 10)
+    label.Text = "Lỗi tải Fluent UI\nVui lòng thử lại"
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 18
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+    
     return
 end
 
-local Window = Fluent:CreateWindow({
-    Title = "Thành Phố Vina RP ❄️",
-    SubTitle = "made by snow family",
-    TabWidth = 130,
-    Size = UDim2.fromOffset(460, 440),
-    Acrylic = true,
-    Theme = "Dark"
-})
+-- ====== Tạo Window với xử lý lỗi ======
+local Window
+success, err = pcall(function()
+    Window = Fluent:CreateWindow({
+        Title = "Thành Phố Vina RP ❄️",
+        SubTitle = "made by snow family",
+        TabWidth = 130,
+        Size = UDim2.fromOffset(460, 440),
+        Acrylic = true,
+        Theme = "Dark"
+    })
+end)
 
-if not Window then
-    warn("Không thể tạo Window")
+if not success or not Window then
+    warn("Không thể tạo Window:", err)
     return
 end
 
@@ -77,25 +102,16 @@ local function createUIToggleButton()
         
         local fluentGui = nil
         for _, gui in ipairs(player.PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Name:find("Fluent") then
+            if gui:IsA("ScreenGui") and (gui.Name:find("Fluent") or gui.Name:find("FluentUI")) then
                 fluentGui = gui
                 break
-            end
-        end
-        
-        if not fluentGui then
-            for _, gui in ipairs(player.PlayerGui:GetChildren()) do
-                if gui:IsA("ScreenGui") and gui:FindFirstChild("Main") then
-                    fluentGui = gui
-                    break
-                end
             end
         end
         
         if fluentGui then
             fluentGui.Enabled = uiVisible
         else
-            if Window._container then
+            if Window and Window._container then
                 local parent = Window._container.Parent
                 if parent and parent:IsA("ScreenGui") then
                     parent.Enabled = uiVisible
@@ -167,7 +183,9 @@ local function setTarget(name)
 
     local targetPlayer = Players:FindFirstChild(name)  
     if not targetPlayer then  
-        Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy người chơi: " .. name, Duration = 3 })  
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy người chơi: " .. name, Duration = 3 })
+        end
         return  
     end  
 
@@ -182,7 +200,9 @@ local function setTarget(name)
     end)  
     table.insert(connections, conn)  
 
-    Fluent:Notify({ Title = "Thành công", Content = "Đã áp dụng áo cho " .. name, Duration = 3 })
+    if Fluent and Fluent.Notify then
+        Fluent:Notify({ Title = "Thành công", Content = "Đã áp dụng áo cho " .. name, Duration = 3 })
+    end
 end
 
 local Dropdown = MainTab:AddDropdown("PlayerDropdown", {
@@ -201,7 +221,9 @@ MainTab:AddButton({
         if selectedName then
             setTarget(selectedName)
         else
-            Fluent:Notify({ Title = "Lỗi", Content = "Bạn chưa chọn người chơi", Duration = 3 })
+            if Fluent and Fluent.Notify then
+                Fluent:Notify({ Title = "Lỗi", Content = "Bạn chưa chọn người chơi", Duration = 3 })
+            end
         end
     end
 })
@@ -221,7 +243,9 @@ MainTab:AddToggle("ShirtToggle", {
                 end
             end
         end
-        Fluent:Notify({ Title = "Trạng thái", Content = toggledOn and "Đã bật" or "Đã tắt", Duration = 2 })
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "Trạng thái", Content = toggledOn and "Đã bật" or "Đã tắt", Duration = 2 })
+        end
     end
 })
 
@@ -245,6 +269,7 @@ local beanbagEnabled = false
 local followToggleValue = false
 
 local activeTricks = {}
+local teleportLock = {} -- Lock để ngăn TP nhiều lần
 
 local platformPart = nil
 local function createPlatform()
@@ -277,7 +302,9 @@ local function startFollow(targetName)
     stopFollow()
     local targetPlayer = Players:FindFirstChild(targetName)
     if not targetPlayer then
-        Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy người chơi: " .. targetName, Duration = 3 })
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy người chơi: " .. targetName, Duration = 3 })
+        end
         return
     end
 
@@ -292,12 +319,10 @@ local function startFollow(targetName)
         local myHRP = myChar:FindFirstChild("HumanoidRootPart")  
         local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")  
         if myHRP and targetHRP then  
-            -- Tăng tốc độ bám bằng cách cập nhật CFrame liên tục
             myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
-            -- Đồng bộ vận tốc để bám nhanh hơn
             local humanoid = myChar:FindFirstChildOfClass("Humanoid")
             if humanoid then
-                humanoid.WalkSpeed = 50 -- Tăng tốc độ di chuyển
+                humanoid.WalkSpeed = 50
             end
         end  
     end)
@@ -315,43 +340,119 @@ local function findSeatInTool(tool)
         or propSeat:FindFirstChildWhichIsA("VehicleSeat", true)
 end
 
+-- Hàm giữ vị trí cho nhân vật
+local function holdPosition(character, targetCFrame)
+    if not character or not targetCFrame then return end
+    
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    -- Tạo BodyPosition để giữ vị trí
+    local bodyPosition = Instance.new("BodyPosition")
+    bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+    bodyPosition.P = 2000
+    bodyPosition.D = 500
+    bodyPosition.Position = targetCFrame.Position
+    bodyPosition.Parent = hrp
+    
+    -- Tạo BodyGyro để giữ hướng
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000)
+    bodyGyro.P = 2000
+    bodyGyro.D = 500
+    bodyGyro.CFrame = targetCFrame
+    bodyGyro.Parent = hrp
+    
+    -- Tự động xóa sau 2 giây
+    task.delay(2, function()
+        if bodyPosition and bodyPosition.Parent then
+            bodyPosition:Destroy()
+        end
+        if bodyGyro and bodyGyro.Parent then
+            bodyGyro:Destroy()
+        end
+    end)
+    
+    return bodyPosition, bodyGyro
+end
+
 local function playBeanbagTrick(targetCharacter, seat, equippedTool)
+    -- Kiểm tra lock để tránh TP nhiều lần
+    if teleportLock[targetCharacter] then
+        return
+    end
+    
     local hrp = targetCharacter:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
     local state = { cancelled = false }  
     activeTricks[targetCharacter] = state  
+    teleportLock[targetCharacter] = true
 
     task.wait(BEANBAG_PRE_TP_DELAY)  
-    if state.cancelled then return end  
-
-    local targetPos = BEANBAG_TP_CFRAME.Position + Vector3.new(0, 1.5, 0)
-    local targetCFrame = CFrame.new(targetPos)  
-    local currentHrp = targetCharacter:FindFirstChild("HumanoidRootPart")  
-    if currentHrp then  
-        currentHrp.CFrame = targetCFrame  
+    if state.cancelled then 
+        teleportLock[targetCharacter] = nil
+        return 
     end  
 
+    local targetPos = BEANBAG_TP_CFRAME.Position + Vector3.new(0, 1.5, 0)
+    local targetCFrame = CFrame.new(targetPos)
+    
+    -- Lưu vị trí cũ để phòng trường hợp bị đẩy về
+    local oldCFrame = hrp.CFrame
+    
+    -- TP nhân vật
+    local currentHrp = targetCharacter:FindFirstChild("HumanoidRootPart")  
+    if currentHrp then  
+        currentHrp.CFrame = targetCFrame
+        currentHrp.Velocity = Vector3.new(0, 0, 0)
+        currentHrp.RotVelocity = Vector3.new(0, 0, 0)
+    end  
+    
+    -- Giữ vị trí bằng BodyPosition
+    local bodyPos, bodyGyro = holdPosition(targetCharacter, targetCFrame)
+
+    -- Kiểm tra đến nơi
     local arriveElapsed = 0  
     while arriveElapsed < BEANBAG_ARRIVE_TIMEOUT and not state.cancelled do  
         local hrpNow = targetCharacter:FindFirstChild("HumanoidRootPart")  
         if hrpNow and (hrpNow.Position - targetPos).Magnitude <= BEANBAG_ARRIVE_RADIUS then  
             break  
         end  
+        -- Nếu bị đẩy ra xa, TP lại
+        if hrpNow and (hrpNow.Position - targetPos).Magnitude > BEANBAG_ARRIVE_RADIUS * 2 then
+            hrpNow.CFrame = targetCFrame
+            hrpNow.Velocity = Vector3.new(0, 0, 0)
+        end
         local dt = task.wait()  
         arriveElapsed += dt  
     end  
-    if state.cancelled then return end  
+    if state.cancelled then 
+        teleportLock[targetCharacter] = nil
+        return 
+    end  
 
     task.wait(BEANBAG_EXTRA_SETTLE)  
-    if state.cancelled then return end  
+    if state.cancelled then 
+        teleportLock[targetCharacter] = nil
+        return 
+    end  
 
+    -- Đợi người ngồi vào ghế
     repeat
-        task.wait()
-    until seat.Occupant == nil or (seat.Occupant and seat.Occupant.Parent == targetCharacter) or state.cancelled
+        task.wait(0.1)
+        if state.cancelled then 
+            teleportLock[targetCharacter] = nil
+            return 
+        end
+    until seat.Occupant == nil or (seat.Occupant and seat.Occupant.Parent == targetCharacter)
 
-    if state.cancelled then return end
+    if state.cancelled then 
+        teleportLock[targetCharacter] = nil
+        return 
+    end
 
+    -- Xóa tool nếu đang cầm
     if equippedTool and equippedTool.Parent == player.Character then
         scriptRemovingTool = true
         equippedTool.Parent = player.Backpack
@@ -360,17 +461,31 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
         end)
     end
 
+    -- Kiểm tra trong thời gian BEANBAG_CHECK_DURATION
     local elapsed = 0  
+    local checkInterval = 0.1
     while elapsed < BEANBAG_CHECK_DURATION and not state.cancelled do  
         local occ = seat.Occupant  
         local occChar = occ and occ.Parent  
         if occChar ~= targetCharacter then  
             break  
         end  
-        local dt = task.wait()  
-        elapsed += dt  
+        
+        -- Liên tục kiểm tra và giữ vị trí
+        local hrpNow = targetCharacter:FindFirstChild("HumanoidRootPart")
+        if hrpNow and (hrpNow.Position - targetPos).Magnitude > BEANBAG_ARRIVE_RADIUS then
+            hrpNow.CFrame = targetCFrame
+            hrpNow.Velocity = Vector3.new(0, 0, 0)
+            -- Tạo lại BodyPosition để giữ
+            holdPosition(targetCharacter, targetCFrame)
+        end
+        
+        task.wait(checkInterval)  
+        elapsed += checkInterval  
     end  
 
+    -- Xóa lock
+    teleportLock[targetCharacter] = nil
     activeTricks[targetCharacter] = nil
 end
 
@@ -396,13 +511,17 @@ local function onBeanbagEquipped(tool)
     currentBeanbagTool = tool
     if not beanbagEnabled then
         beanbagEnabled = true
-        Fluent:Notify({ Title = "BeanBag", Content = "Đã tự động bật vì có tool", Duration = 2 })
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "BeanBag", Content = "Đã tự động bật vì có tool", Duration = 2 })
+        end
     end
     if not bbSelectedName then return end
     local seat = findSeatInTool(tool)
     if seat then
         watchSeat(seat, tool)
-        Fluent:Notify({ Title = "BeanBag Red", Content = "Đang theo dõi ghế cho " .. bbSelectedName, Duration = 3 })
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "BeanBag Red", Content = "Đang theo dõi ghế cho " .. bbSelectedName, Duration = 3 })
+        end
     end
 end
 
@@ -414,13 +533,18 @@ local function onBeanbagUnequipped()
     currentBeanbagTool = nil
     if beanbagEnabled then
         beanbagEnabled = false
-        Fluent:Notify({ Title = "BeanBag", Content = "Đã tắt vì không cầm tool", Duration = 2 })
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "BeanBag", Content = "Đã tắt vì không cầm tool", Duration = 2 })
+        end
     end
 
     if not scriptRemovingTool then  
         for _, state in pairs(activeTricks) do  
             state.cancelled = true  
         end  
+        for char, _ in pairs(teleportLock) do
+            teleportLock[char] = nil
+        end
     end
 end
 
@@ -428,7 +552,6 @@ local function hookCharacter(character)
     character.ChildAdded:Connect(function(child)
         if child:IsA("Tool") and child.Name == "BeanBag Red" then
             onBeanbagEquipped(child)
-            -- Tự động bật follow khi có tool
             if followToggleValue and bbSelectedName then
                 startFollow(bbSelectedName)
             end
@@ -459,7 +582,6 @@ local BeanbagDropdown = MainTab:AddDropdown("BeanbagPlayerDropdown", {
                 onBeanbagEquipped(tool)
             end
         end
-        -- Tự động cập nhật follow khi đổi người
         if followToggleValue and value then
             startFollow(value)
         end
@@ -474,13 +596,19 @@ local followToggle = MainTab:AddToggle("FollowToggle", {
         if value then
             if bbSelectedName then
                 startFollow(bbSelectedName)
-                Fluent:Notify({ Title = "Bám theo", Content = "Đang bám theo " .. bbSelectedName, Duration = 3 })
+                if Fluent and Fluent.Notify then
+                    Fluent:Notify({ Title = "Bám theo", Content = "Đang bám theo " .. bbSelectedName, Duration = 3 })
+                end
             else
-                Fluent:Notify({ Title = "Lỗi", Content = "Bạn chưa chọn người chơi", Duration = 3 })
+                if Fluent and Fluent.Notify then
+                    Fluent:Notify({ Title = "Lỗi", Content = "Bạn chưa chọn người chơi", Duration = 3 })
+                end
             end
         else
             stopFollow()
-            Fluent:Notify({ Title = "Bám theo", Content = "Đã tắt", Duration = 2 })
+            if Fluent and Fluent.Notify then
+                Fluent:Notify({ Title = "Bám theo", Content = "Đã tắt", Duration = 2 })
+            end
         end
     end
 })
@@ -490,7 +618,9 @@ MainTab:AddButton({
     Callback = function()
         Dropdown:SetValues(getPlayerNames())
         BeanbagDropdown:SetValues(getPlayerNames())
-        Fluent:Notify({ Title = "Làm mới", Content = "Đã cập nhật danh sách người chơi", Duration = 2 })
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "Làm mới", Content = "Đã cập nhật danh sách người chơi", Duration = 2 })
+        end
     end
 })
 
@@ -622,14 +752,18 @@ local function startSignCycling()
 
     if #signLines == 0 then
         if not loadSignLines() then
-            Fluent:Notify({ Title = "Dark Sign", Content = "Không có dữ liệu để hiển thị", Duration = 3 })
+            if Fluent and Fluent.Notify then
+                Fluent:Notify({ Title = "Dark Sign", Content = "Không có dữ liệu để hiển thị", Duration = 3 })
+            end
             return
         end
     end
 
     local tool = findDarkSignTool()
     if not tool then
-        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy Sign trong Backpack/tay", Duration = 3 })
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy Sign trong Backpack/tay", Duration = 3 })
+        end
         return
     end
 
@@ -638,7 +772,9 @@ local function startSignCycling()
     
     queueSignUpdate(signLines[signCurrentIndex])
     
-    Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng", Duration = 2 })
+    if Fluent and Fluent.Notify then
+        Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng", Duration = 2 })
+    end
 
     if signCycleTask then
         task.cancel(signCycleTask)
@@ -675,7 +811,9 @@ MainTab:AddToggle("SignBlinkToggle", {
             startSignCycling()
         else
             stopSignCycling()
-            Fluent:Notify({ Title = "Dark Sign", Content = "Đã tắt nháy bảng", Duration = 2 })
+            if Fluent and Fluent.Notify then
+                Fluent:Notify({ Title = "Dark Sign", Content = "Đã tắt nháy bảng", Duration = 2 })
+            end
         end
     end
 })
@@ -685,12 +823,16 @@ MainTab:AddButton({
     Callback = function()
         signQueue = {}
         isProcessingQueue = false
-        Fluent:Notify({ Title = "Dark Sign", Content = "Đã reset queue", Duration = 2 })
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({ Title = "Dark Sign", Content = "Đã reset queue", Duration = 2 })
+        end
     end
 })
 
-Fluent:Notify({
-    Title = "Thành Phố Vina RP ❄️",
-    Content = "Đã tải xong",
-    Duration = 4
-})
+if Fluent and Fluent.Notify then
+    Fluent:Notify({
+        Title = "Thành Phố Vina RP ❄️",
+        Content = "Đã tải xong",
+        Duration = 4
+    })
+end
