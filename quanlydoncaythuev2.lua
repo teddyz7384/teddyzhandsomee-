@@ -408,25 +408,8 @@ local SIGN_UPDATE_INTERVAL = 0.3
 local signLines = {}
 local signCycling = false
 local signCurrentIndex = 0
-local signUpdating = false
-local currentRemoteEvent = nil
 
--- Hàm lấy RemoteEvent từ tool Dark Sign
-local function getRemoteEvent()
-    local tool = findDarkSignTool()
-    if not tool then return nil end
-    -- Tìm UpdateSign trong tool
-    local remoteEvent = tool:FindFirstChild("UpdateSign")
-    if not remoteEvent then
-        -- Nếu chưa có, tạo mới
-        remoteEvent = Instance.new("RemoteEvent")
-        remoteEvent.Name = "UpdateSign"
-        remoteEvent.Parent = tool
-    end
-    return remoteEvent
-end
-
--- Tìm Tool "Dark Sign" dù đang cầm (Character) hay trong Backpack
+-- Tìm Tool "Dark Sign"
 local function findDarkSignTool()
     local character = player.Character
     if character then
@@ -441,7 +424,7 @@ local function findDarkSignTool()
     return nil
 end
 
--- Tìm TextLabel trong SignPart > SurfaceGui của tool Dark Sign
+-- Tìm TextLabel trong SignPart
 local function getSignTextLabel()
     local tool = findDarkSignTool()
     if not tool then return nil end
@@ -452,28 +435,37 @@ local function getSignTextLabel()
     return surfaceGui:FindFirstChild("TextLabel")
 end
 
--- Hàm gửi update qua RemoteEvent cho tất cả người chơi
+-- Lấy RemoteEvent từ tool
+local function getRemoteEvent()
+    local tool = findDarkSignTool()
+    if not tool then return nil end
+    local remoteEvent = tool:FindFirstChild("UpdateSign")
+    if not remoteEvent then
+        remoteEvent = Instance.new("RemoteEvent")
+        remoteEvent.Name = "UpdateSign"
+        remoteEvent.Parent = tool
+    end
+    return remoteEvent
+end
+
+-- Gửi update lên server
 local function broadcastSignUpdate(text)
     local remoteEvent = getRemoteEvent()
     if remoteEvent then
-        -- Gửi lên server để broadcast
         remoteEvent:FireServer(text)
-    else
-        warn("Không tìm thấy RemoteEvent trong tool Dark Sign")
     end
 end
 
--- Cập nhật text label và broadcast
+-- Cập nhật text
 local function updateSignText(text)
     local label = getSignTextLabel()
     if label then
         label.Text = text
     end
-    -- Gửi update cho tất cả người chơi qua RemoteEvent
     broadcastSignUpdate(text)
 end
 
--- Tải nội dung ngon.txt và tách thành từng dòng
+-- Tải nội dung ngon.txt
 local function loadSignLines()
     local ok, content = pcall(function()
         return game:HttpGet(SIGN_TEXT_URL)
@@ -495,6 +487,7 @@ local function loadSignLines()
     return #signLines > 0
 end
 
+-- Bắt đầu nháy bảng
 local function startSignCycling()
     if signCycling then return end
 
@@ -528,21 +521,18 @@ local function startSignCycling()
     end)
 end
 
+-- Dừng nháy bảng
 local function stopSignCycling()
     signCycling = false
-    -- Khi tắt, set text về mặc định hoặc rỗng
     updateSignText("")
+    Fluent:Notify({ Title = "Dark Sign", Content = "Đã tắt nháy bảng", Duration = 2 })
 end
 
--- Lắng nghe RemoteEvent từ server để cập nhật text
-local function setupRemoteEventListener()
+-- Lắng nghe update từ server
+local function setupRemoteListener()
     local remoteEvent = getRemoteEvent()
     if remoteEvent then
-        -- Hủy kết nối cũ nếu có
-        if currentRemoteEvent then
-            currentRemoteEvent:Disconnect()
-        end
-        currentRemoteEvent = remoteEvent.OnClientEvent:Connect(function(text)
+        remoteEvent.OnClientEvent:Connect(function(text)
             local label = getSignTextLabel()
             if label then
                 label.Text = text
@@ -551,35 +541,31 @@ local function setupRemoteEventListener()
     end
 end
 
--- Lắng nghe khi tool được trang bị/bỏ để cập nhật RemoteEvent
+-- Setup khi tool được trang bị
 local function setupToolDetection()
-    -- Kiểm tra khi tool được thêm vào Character
+    -- Khi character được thêm
     player.CharacterAdded:Connect(function(character)
-        character.ChildAdded:Connect(function(child)
-            if child:IsA("Tool") and child.Name == "Dark Sign" then
-                -- Đợi một chút để tool load
-                task.wait(0.5)
-                setupRemoteEventListener()
-            end
-        end)
+        task.wait(0.5)
+        setupRemoteListener()
     end)
     
-    -- Kiểm tra Backpack
+    -- Khi tool được thêm vào Backpack
     local backpack = player:FindFirstChild("Backpack")
     if backpack then
         backpack.ChildAdded:Connect(function(child)
             if child:IsA("Tool") and child.Name == "Dark Sign" then
                 task.wait(0.5)
-                setupRemoteEventListener()
+                setupRemoteListener()
             end
         end)
     end
 end
 
 -- Khởi tạo
-setupRemoteEventListener()
+setupRemoteListener()
 setupToolDetection()
 
+-- Thêm Dark Sign toggle
 MainTab:AddToggle("SignBlinkToggle", {
     Title = "Bật/Tắt Nháy Bảng",
     Default = false,
@@ -588,12 +574,11 @@ MainTab:AddToggle("SignBlinkToggle", {
             startSignCycling()
         else
             stopSignCycling()
-            Fluent:Notify({ Title = "Dark Sign", Content = "Đã tắt nháy bảng", Duration = 2 })
         end
     end
 })
 
--- Button để gửi test message cho tất cả người chơi
+-- Button gửi test
 MainTab:AddButton({
     Title = "Gửi test (All)",
     Callback = function()
