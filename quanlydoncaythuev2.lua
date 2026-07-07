@@ -462,10 +462,7 @@ local function loadSignLines()
     if not ok or not content or content == "" then
         -- Nếu không tải được, dùng danh sách mặc định
         signLines = {
-            "Chào mừng!",
-            "Dark Sign Active!",
-            "Vui lòng đọc",
-            "Cảm ơn bạn!"
+            "Ae snow no1 vina rp",
         }
         return true
     end
@@ -495,13 +492,13 @@ local function startSignCycling()
     -- Kiểm tra tool và remote
     local tool = findDarkSignTool()
     if not tool then
-        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy Dark Sign trong Backpack/tay", Duration = 3 })
+        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy Sign trong Backpack/tay", Duration = 3 })
         return
     end
     
     local remote = getUpdateSignRemote(tool)
     if not remote then
-        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy RemoteEvent UpdateSign trong tool", Duration = 3 })
+        Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy UpdateSign trong tool", Duration = 3 })
         return
     end
 
@@ -511,11 +508,11 @@ local function startSignCycling()
     -- Gửi câu đầu tiên
     updateSignViaRemote(signLines[signCurrentIndex])
     
-    Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng (cập nhật qua RemoteEvent)", Duration = 2 })
+    Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng", Duration = 2 })
 
     task.spawn(function()
         while signCycling do
-            task.wait(1) -- Tần suất update
+            task.wait(0.3) -- Đã đổi từ 1s xuống 0.3s
             if not signCycling then break end
             if #signLines == 0 then break end
 
@@ -541,7 +538,7 @@ local function stopSignCycling()
 end
 
 MainTab:AddToggle("SignBlinkToggle", {
-    Title = "Bật/Tắt Nháy Bảng (RemoteEvent)",
+    Title = "Bật/Tắt Nháy Bảng",
     Default = false,
     Callback = function(value)
         if value then
@@ -553,18 +550,8 @@ MainTab:AddToggle("SignBlinkToggle", {
     end
 })
 
--- Nút thủ công để test
-MainTab:AddButton({
-    Title = "Test UpdateSign",
-    Callback = function()
-        local text = "Test: " .. os.time()
-        updateSignViaRemote(text)
-        Fluent:Notify({ Title = "Test", Content = "Đã gửi: " .. text, Duration = 3 })
-    end
-})
-
 Fluent:Notify({
     Title = "Thành Phố Vina RP ❄️",
-    Content = "Đã tải xong (Dark Sign dùng RemoteEvent)",
+    Content = "Đã tải xong",
     Duration = 4
 })
