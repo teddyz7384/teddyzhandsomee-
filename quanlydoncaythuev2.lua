@@ -2,7 +2,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
 local SHIRT_ID = 3204384330
@@ -25,27 +24,76 @@ local Window = Fluent:CreateWindow({
 local MainTab = Window:AddTab({ Title = "Main", Icon = "shirt" })
 Window:SelectTab(1)
 
--- ====== UI Control ======
-local uiVisible = true
-local toggleKey = Enum.KeyCode.RightControl
-
-local function toggleUI()
-    uiVisible = not uiVisible
-    if uiVisible then
-        Window:SetVisible(true)
-        Fluent:Notify({ Title = "UI", Content = "Đã mở UI", Duration = 1 })
-    else
-        Window:SetVisible(false)
-        Fluent:Notify({ Title = "UI", Content = "Đã đóng UI", Duration = 1 })
+-- ====== Tạo nút toggle UI trên màn hình (cho mobile) ======
+local function createUIToggleButton()
+    -- Tạo ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "UIToggleGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player.PlayerGui
+    
+    -- Tạo nút bấm
+    local button = Instance.new("TextButton")
+    button.Name = "ToggleButton"
+    button.Size = UDim2.new(0, 60, 0, 60)
+    button.Position = UDim2.new(1, -70, 0.5, -30) -- Góc phải màn hình
+    button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    button.BackgroundTransparency = 0.2
+    button.Text = "UI"
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 18
+    button.TextScaled = true
+    button.Font = Enum.Font.GothamBold
+    button.BorderSizePixel = 0
+    button.Parent = screenGui
+    
+    -- Thêm hiệu ứng bo tròn
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = button
+    
+    -- Thêm hiệu ứng hover (cho PC)
+    button.MouseEnter:Connect(function()
+        button.BackgroundTransparency = 0.1
+        button.Size = UDim2.new(0, 65, 0, 65)
+    end)
+    
+    button.MouseLeave:Connect(function()
+        button.BackgroundTransparency = 0.2
+        button.Size = UDim2.new(0, 60, 0, 60)
+    end)
+    
+    -- Biến trạng thái UI
+    local uiVisible = true
+    
+    -- Hàm toggle UI
+    local function toggleUI()
+        uiVisible = not uiVisible
+        Window:SetVisible(uiVisible)
+        
+        -- Đổi màu nút để hiển thị trạng thái
+        if uiVisible then
+            button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            button.Text = "UI"
+            button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+            button.Text = "OFF"
+            button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
     end
+    
+    -- Sự kiện click
+    button.MouseButton1Click:Connect(toggleUI)
+    
+    -- Bắt sự kiện touch (cho mobile)
+    button.TouchTap:Connect(toggleUI)
+    
+    return button
 end
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == toggleKey then
-        toggleUI()
-    end
-end)
+-- Tạo nút toggle
+local toggleButton = createUIToggleButton()
 
 -- ====== Danh sách người chơi (dùng chung) ======
 local function getPlayerNames()
@@ -394,6 +442,27 @@ MainTab:AddToggle("FollowToggle", {
     end
 })
 
+MainTab:AddButton({
+    Title = "Làm mới danh sách",
+    Callback = function()
+        Dropdown:SetValues(getPlayerNames())
+        BeanbagDropdown:SetValues(getPlayerNames())
+        Fluent:Notify({ Title = "Làm mới", Content = "Đã cập nhật danh sách người chơi", Duration = 2 })
+    end
+})
+
+Players.PlayerAdded:Connect(function()
+    task.wait(0.5)
+    Dropdown:SetValues(getPlayerNames())
+    BeanbagDropdown:SetValues(getPlayerNames())
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.wait(0.5)
+    Dropdown:SetValues(getPlayerNames())
+    BeanbagDropdown:SetValues(getPlayerNames())
+end)
+
 -- =========================================================
 -- ============ FEATURE 3: DARK SIGN - NHÁY BẢNG ===========
 -- =========================================================
@@ -402,10 +471,12 @@ MainTab:AddSection("Dark Sign")
 -- Tìm RemoteEvent UpdateSign trong tool
 local function getUpdateSignRemote(tool)
     if not tool then return nil end
+    -- Tìm trong tool trước
     local remote = tool:FindFirstChild("UpdateSign")
     if remote and remote:IsA("RemoteEvent") then
         return remote
     end
+    -- Tìm trong các con của tool
     for _, child in ipairs(tool:GetDescendants()) do
         if child:IsA("RemoteEvent") and child.Name == "UpdateSign" then
             return child
@@ -429,10 +500,10 @@ local function findDarkSignTool()
     return nil
 end
 
--- Queue system để kiểm soát tốc độ gửi request
+-- Gửi yêu cầu update bảng qua RemoteEvent (có kiểm soát tốc độ)
 local signQueue = {}
 local isProcessingQueue = false
-local SIGN_SEND_INTERVAL = 0.3
+local SIGN_SEND_INTERVAL = 0.3 -- Khoảng cách thời gian giữa các lần gửi (300ms)
 
 local function sendSignUpdate(text)
     local tool = findDarkSignTool()
@@ -450,6 +521,7 @@ local function processSignQueue()
     
     isProcessingQueue = true
     
+    -- Gửi tất cả các tin nhắn trong queue với khoảng cách thời gian
     local function sendNext()
         if #signQueue == 0 then
             isProcessingQueue = false
@@ -460,10 +532,12 @@ local function processSignQueue()
         local success = sendSignUpdate(text)
         
         if not success then
+            -- Nếu gửi thất bại, thử lại sau 0.5s
             task.wait(0.5)
             table.insert(signQueue, 1, text)
         end
         
+        -- Chờ khoảng thời gian quy định trước khi gửi tin tiếp theo
         task.wait(SIGN_SEND_INTERVAL)
         sendNext()
     end
@@ -471,6 +545,7 @@ local function processSignQueue()
     task.spawn(sendNext)
 end
 
+-- Hàm thêm tin nhắn vào queue
 local function queueSignUpdate(text)
     if text and text ~= "" then
         table.insert(signQueue, text)
@@ -519,6 +594,7 @@ local function startSignCycling()
         end
     end
 
+    -- Kiểm tra tool
     local tool = findDarkSignTool()
     if not tool then
         Fluent:Notify({ Title = "Dark Sign", Content = "Không tìm thấy Sign trong Backpack/tay", Duration = 3 })
@@ -528,10 +604,12 @@ local function startSignCycling()
     signCycling = true
     signCurrentIndex = 1
     
+    -- Thêm câu đầu tiên vào queue
     queueSignUpdate(signLines[signCurrentIndex])
     
     Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng", Duration = 2 })
 
+    -- Hủy task cũ nếu có
     if signCycleTask then
         task.cancel(signCycleTask)
         signCycleTask = nil
@@ -539,7 +617,7 @@ local function startSignCycling()
 
     signCycleTask = task.spawn(function()
         while signCycling do
-            task.wait(SIGN_SEND_INTERVAL * 0.5)
+            task.wait(SIGN_SEND_INTERVAL * 0.5) -- Đợi một nửa khoảng thời gian
             if not signCycling then break end
             if #signLines == 0 then break end
 
@@ -555,6 +633,7 @@ local function stopSignCycling()
         task.cancel(signCycleTask)
         signCycleTask = nil
     end
+    -- Xóa queue
     signQueue = {}
     isProcessingQueue = false
 end
@@ -572,61 +651,18 @@ MainTab:AddToggle("SignBlinkToggle", {
     end
 })
 
--- =========================================================
--- ============ UI CONTROL SECTION =========================
--- =========================================================
-MainTab:AddSection("UI Control")
-
+-- Thêm nút reset cho queue (nếu cần)
 MainTab:AddButton({
-    Title = "🔘 Bật/Tắt UI (Phím: RightControl)",
+    Title = "Reset Queue",
     Callback = function()
-        toggleUI()
+        signQueue = {}
+        isProcessingQueue = false
+        Fluent:Notify({ Title = "Dark Sign", Content = "Đã reset queue", Duration = 2 })
     end
 })
 
-MainTab:AddButton({
-    Title = "📝 Hướng dẫn đổi phím tắt",
-    Callback = function()
-        Fluent:Notify({ 
-            Title = "Hướng dẫn", 
-            Content = "Sửa biến toggleKey ở đầu script (dòng 19) để đổi phím", 
-            Duration = 4 
-        })
-    end
-})
-
--- =========================================================
--- ============ BUTTON LÀM MỚI DANH SÁCH ===================
--- =========================================================
-MainTab:AddButton({
-    Title = "Làm mới danh sách",
-    Callback = function()
-        Dropdown:SetValues(getPlayerNames())
-        BeanbagDropdown:SetValues(getPlayerNames())
-        Fluent:Notify({ Title = "Làm mới", Content = "Đã cập nhật danh sách người chơi", Duration = 2 })
-    end
-})
-
--- =========================================================
--- ============ AUTO UPDATE PLAYER LIST ====================
--- =========================================================
-Players.PlayerAdded:Connect(function()
-    task.wait(0.5)
-    Dropdown:SetValues(getPlayerNames())
-    BeanbagDropdown:SetValues(getPlayerNames())
-end)
-
-Players.PlayerRemoving:Connect(function()
-    task.wait(0.5)
-    Dropdown:SetValues(getPlayerNames())
-    BeanbagDropdown:SetValues(getPlayerNames())
-end)
-
--- =========================================================
--- ============ NOTIFICATION STARTUP =======================
--- =========================================================
 Fluent:Notify({
     Title = "Thành Phố Vina RP ❄️",
-    Content = "Đã tải xong - Nhấn RightControl để tắt/mở UI",
+    Content = "Đã tải xong",
     Duration = 4
 })
