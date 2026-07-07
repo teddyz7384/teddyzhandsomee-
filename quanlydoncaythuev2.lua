@@ -9,11 +9,6 @@ local connections = {}
 local toggledOn = true
 local currentTargetName = nil
 
--- ====== Tạo RemoteEvent ======
-local remoteEvent = Instance.new("RemoteEvent")
-remoteEvent.Name = "UpdateSign"
-remoteEvent.Parent = ReplicatedStorage
-
 -- ====== Load Fluent UI ======
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
@@ -408,16 +403,27 @@ MainTab:AddSection("Dark Sign")
 
 -- !!! THAY LINK NÀY BẰNG LINK "RAW" THẬT CỦA FILE ngon.txt TRÊN GITHUB !!!
 local SIGN_TEXT_URL = "https://raw.githubusercontent.com/teddyz7384/teddyzhandsomee-/refs/heads/main/ngon.txt"
-local SIGN_UPDATE_INTERVAL = 1
+local SIGN_UPDATE_INTERVAL = 0.3
 
 local signLines = {}
 local signCycling = false
 local signCurrentIndex = 0
 local signUpdating = false
+local currentRemoteEvent = nil
 
--- Hàm gửi update qua RemoteEvent cho tất cả người chơi
-local function broadcastSignUpdate(text)
-    remoteEvent:FireAllClients(text)
+-- Hàm lấy RemoteEvent từ tool Dark Sign
+local function getRemoteEvent()
+    local tool = findDarkSignTool()
+    if not tool then return nil end
+    -- Tìm UpdateSign trong tool
+    local remoteEvent = tool:FindFirstChild("UpdateSign")
+    if not remoteEvent then
+        -- Nếu chưa có, tạo mới
+        remoteEvent = Instance.new("RemoteEvent")
+        remoteEvent.Name = "UpdateSign"
+        remoteEvent.Parent = tool
+    end
+    return remoteEvent
 end
 
 -- Tìm Tool "Dark Sign" dù đang cầm (Character) hay trong Backpack
@@ -444,6 +450,17 @@ local function getSignTextLabel()
     local surfaceGui = signPart:FindFirstChildOfClass("SurfaceGui")
     if not surfaceGui then return nil end
     return surfaceGui:FindFirstChild("TextLabel")
+end
+
+-- Hàm gửi update qua RemoteEvent cho tất cả người chơi
+local function broadcastSignUpdate(text)
+    local remoteEvent = getRemoteEvent()
+    if remoteEvent then
+        -- Gửi lên server để broadcast
+        remoteEvent:FireServer(text)
+    else
+        warn("Không tìm thấy RemoteEvent trong tool Dark Sign")
+    end
 end
 
 -- Cập nhật text label và broadcast
@@ -518,14 +535,50 @@ local function stopSignCycling()
 end
 
 -- Lắng nghe RemoteEvent từ server để cập nhật text
-remoteEvent.OnClientEvent:Connect(function(text)
-    if not signUpdating then
-        local label = getSignTextLabel()
-        if label then
-            label.Text = text
+local function setupRemoteEventListener()
+    local remoteEvent = getRemoteEvent()
+    if remoteEvent then
+        -- Hủy kết nối cũ nếu có
+        if currentRemoteEvent then
+            currentRemoteEvent:Disconnect()
         end
+        currentRemoteEvent = remoteEvent.OnClientEvent:Connect(function(text)
+            local label = getSignTextLabel()
+            if label then
+                label.Text = text
+            end
+        end)
     end
-end)
+end
+
+-- Lắng nghe khi tool được trang bị/bỏ để cập nhật RemoteEvent
+local function setupToolDetection()
+    -- Kiểm tra khi tool được thêm vào Character
+    player.CharacterAdded:Connect(function(character)
+        character.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") and child.Name == "Dark Sign" then
+                -- Đợi một chút để tool load
+                task.wait(0.5)
+                setupRemoteEventListener()
+            end
+        end)
+    end)
+    
+    -- Kiểm tra Backpack
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        backpack.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") and child.Name == "Dark Sign" then
+                task.wait(0.5)
+                setupRemoteEventListener()
+            end
+        end)
+    end
+end
+
+-- Khởi tạo
+setupRemoteEventListener()
+setupToolDetection()
 
 MainTab:AddToggle("SignBlinkToggle", {
     Title = "Bật/Tắt Nháy Bảng",
@@ -544,8 +597,13 @@ MainTab:AddToggle("SignBlinkToggle", {
 MainTab:AddButton({
     Title = "Gửi test (All)",
     Callback = function()
-        remoteEvent:FireAllClients("Test message from " .. player.Name)
-        Fluent:Notify({ Title = "Đã gửi", Content = "Test message đã gửi cho tất cả", Duration = 2 })
+        local remoteEvent = getRemoteEvent()
+        if remoteEvent then
+            remoteEvent:FireServer("Test message from " .. player.Name)
+            Fluent:Notify({ Title = "Đã gửi", Content = "Test message đã gửi cho tất cả", Duration = 2 })
+        else
+            Fluent:Notify({ Title = "Lỗi", Content = "Chưa có tool Dark Sign", Duration = 2 })
+        end
     end
 })
 
