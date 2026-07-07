@@ -69,7 +69,12 @@ local function createUIToggleButton()
     -- Hàm toggle UI
     local function toggleUI()
         uiVisible = not uiVisible
-        Window:SetVisible(uiVisible)
+        
+        -- Lấy ScreenGui của Fluent
+        local fluentGui = Window._screenGui or Window:GetGui()
+        if fluentGui then
+            fluentGui.Enabled = uiVisible
+        end
         
         -- Đổi màu nút để hiển thị trạng thái
         if uiVisible then
