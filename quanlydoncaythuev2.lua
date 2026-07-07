@@ -1,741 +1,420 @@
---[[
-    KILASIK's Auto Multi-Target Fling Exploit
-    Phiên bản tiếng Việt với UI đẹp và danh sách phân trang
-    Tính năng:
-    - Tự động fling tất cả người chơi (trừ whitelist)
-    - Hiển thị danh sách đã fling (10 người/trang)
-    - UI hiện đại với hiệu ứng
-    - Tương thích JJSploit, Synapse X, etc.
-]]
-
--- DANH SÁCH NGƯỜI CHƠI KHÔNG FLING
-local WhitelistedPlayers = {
-    ["babicutebel"] = true,
-    ["huydz280909"] = true
-}
-
--- Services
+-- LocalScript trong StarterPlayerScripts
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local Player = Players.LocalPlayer
+local player = Players.LocalPlayer
 
--- GUI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KilasikAutoFlingGUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = game:GetService("CoreGui")
+local SHIRT_ID = 3204384330
+local connections = {}
+local toggledOn = true
+local currentTargetName = nil
 
--- Main Frame
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 350, 0, 470)
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -235)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.ClipsDescendants = false
-MainFrame.Parent = ScreenGui
+-- ====== Load Fluent UI ======
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
--- Shadow effect
-local Shadow = Instance.new("ImageLabel")
-Shadow.Size = UDim2.new(1, 30, 1, 30)
-Shadow.Position = UDim2.new(0, -15, 0, -15)
-Shadow.BackgroundTransparency = 1
-Shadow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-Shadow.ImageTransparency = 0.7
-Shadow.ScaleType = Enum.ScaleType.Slice
-Shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-Shadow.ZIndex = 0
-Shadow.Parent = MainFrame
+local Window = Fluent:CreateWindow({
+    Title = "Thành Phố Vina RP ❄️",
+    SubTitle = "made by snow family",
+    TabWidth = 130,
+    Size = UDim2.fromOffset(460, 440),
+    Acrylic = true,
+    Theme = "Dark"
+})
 
--- Corner rounding
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = MainFrame
+local MainTab = Window:AddTab({ Title = "Main", Icon = "shirt" })
+Window:SelectTab(1)
 
--- Gradient Background
-local Gradient = Instance.new("UIGradient")
-Gradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 50)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 35))
-}
-Gradient.Rotation = 45
-Gradient.Parent = MainFrame
-
--- Title Bar
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 50)
-TitleBar.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-TitleBar.BorderSizePixel = 0
-TitleBar.Parent = MainFrame
-
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 12)
-TitleCorner.Parent = TitleBar
-
--- Title gradient
-local TitleGradient = Instance.new("UIGradient")
-TitleGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 60)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 100))
-}
-TitleGradient.Rotation = 90
-TitleGradient.Parent = TitleBar
-
--- Title Icon
-local TitleIcon = Instance.new("TextLabel")
-TitleIcon.Size = UDim2.new(0, 40, 0, 40)
-TitleIcon.Position = UDim2.new(0, 5, 0.5, -20)
-TitleIcon.BackgroundTransparency = 1
-TitleIcon.Text = "⚡"
-TitleIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleIcon.Font = Enum.Font.SourceSansBold
-TitleIcon.TextSize = 28
-TitleIcon.Parent = TitleBar
-
--- Title Text
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -90, 1, 0)
-Title.Position = UDim2.new(0, 45, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "TỰ ĐỘNG FLING"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 20
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TitleBar
-
--- Status Badge
-local StatusBadge = Instance.new("Frame")
-StatusBadge.Size = UDim2.new(0, 80, 0, 24)
-StatusBadge.Position = UDim2.new(1, -90, 0.5, -12)
-StatusBadge.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
-StatusBadge.BorderSizePixel = 0
-StatusBadge.Parent = TitleBar
-
-local BadgeCorner = Instance.new("UICorner")
-BadgeCorner.CornerRadius = UDim.new(0, 12)
-BadgeCorner.Parent = StatusBadge
-
-local StatusText = Instance.new("TextLabel")
-StatusText.Size = UDim2.new(1, 0, 1, 0)
-StatusText.BackgroundTransparency = 1
-StatusText.Text = "HOẠT ĐỘNG"
-StatusText.TextColor3 = Color3.fromRGB(0, 0, 0)
-StatusText.Font = Enum.Font.SourceSansBold
-StatusText.TextSize = 12
-StatusText.Parent = StatusBadge
-
--- Close Button
-local CloseButton = Instance.new("TextButton")
-CloseButton.Position = UDim2.new(1, -40, 0.5, -15)
-CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.BackgroundTransparency = 0.9
-CloseButton.BorderSizePixel = 0
-CloseButton.Text = "✕"
-CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.Font = Enum.Font.SourceSansBold
-CloseButton.TextSize = 18
-CloseButton.Parent = TitleBar
-
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 15)
-CloseCorner.Parent = CloseButton
-
--- Stats Container
-local StatsContainer = Instance.new("Frame")
-StatsContainer.Position = UDim2.new(0, 15, 0, 65)
-StatsContainer.Size = UDim2.new(1, -30, 0, 70)
-StatsContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-StatsContainer.BorderSizePixel = 0
-StatsContainer.Parent = MainFrame
-
-local StatsCorner = Instance.new("UICorner")
-StatsCorner.CornerRadius = UDim.new(0, 10)
-StatsCorner.Parent = StatsContainer
-
--- Target Count Stat
-local TargetStat = Instance.new("Frame")
-TargetStat.Size = UDim2.new(0.48, 0, 1, 0)
-TargetStat.Position = UDim2.new(0, 0, 0, 0)
-TargetStat.BackgroundTransparency = 1
-TargetStat.Parent = StatsContainer
-
-local TargetIcon = Instance.new("TextLabel")
-TargetIcon.Size = UDim2.new(0, 35, 0, 35)
-TargetIcon.Position = UDim2.new(0, 10, 0.5, -17)
-TargetIcon.BackgroundTransparency = 1
-TargetIcon.Text = "🎯"
-TargetIcon.TextSize = 24
-TargetIcon.Parent = TargetStat
-
-local TargetLabel = Instance.new("TextLabel")
-TargetLabel.Size = UDim2.new(1, -50, 0, 20)
-TargetLabel.Position = UDim2.new(0, 45, 0, 8)
-TargetLabel.BackgroundTransparency = 1
-TargetLabel.Text = "MỤC TIÊU"
-TargetLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
-TargetLabel.Font = Enum.Font.SourceSans
-TargetLabel.TextSize = 12
-TargetLabel.TextXAlignment = Enum.TextXAlignment.Left
-TargetLabel.Parent = TargetStat
-
-local TargetCount = Instance.new("TextLabel")
-TargetCount.Size = UDim2.new(1, -50, 0, 30)
-TargetCount.Position = UDim2.new(0, 45, 0, 28)
-TargetCount.BackgroundTransparency = 1
-TargetCount.Text = "0"
-TargetCount.TextColor3 = Color3.fromRGB(255, 255, 255)
-TargetCount.Font = Enum.Font.SourceSansBold
-TargetCount.TextSize = 24
-TargetCount.TextXAlignment = Enum.TextXAlignment.Left
-TargetCount.Parent = TargetStat
-
--- Flinged Count Stat
-local FlingedStat = Instance.new("Frame")
-FlingedStat.Size = UDim2.new(0.48, 0, 1, 0)
-FlingedStat.Position = UDim2.new(0.52, 0, 0, 0)
-FlingedStat.BackgroundTransparency = 1
-FlingedStat.Parent = StatsContainer
-
-local FlingedIcon = Instance.new("TextLabel")
-FlingedIcon.Size = UDim2.new(0, 35, 0, 35)
-FlingedIcon.Position = UDim2.new(0, 10, 0.5, -17)
-FlingedIcon.BackgroundTransparency = 1
-FlingedIcon.Text = "💥"
-FlingedIcon.TextSize = 24
-FlingedIcon.Parent = FlingedStat
-
-local FlingedLabel = Instance.new("TextLabel")
-FlingedLabel.Size = UDim2.new(1, -50, 0, 20)
-FlingedLabel.Position = UDim2.new(0, 45, 0, 8)
-FlingedLabel.BackgroundTransparency = 1
-FlingedLabel.Text = "ĐÃ FLING"
-FlingedLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
-FlingedLabel.Font = Enum.Font.SourceSans
-FlingedLabel.TextSize = 12
-FlingedLabel.TextXAlignment = Enum.TextXAlignment.Left
-FlingedLabel.Parent = FlingedStat
-
-local FlingedCount = Instance.new("TextLabel")
-FlingedCount.Size = UDim2.new(1, -50, 0, 30)
-FlingedCount.Position = UDim2.new(0, 45, 0, 28)
-FlingedCount.BackgroundTransparency = 1
-FlingedCount.Text = "0"
-FlingedCount.TextColor3 = Color3.fromRGB(0, 255, 100)
-FlingedCount.Font = Enum.Font.SourceSansBold
-FlingedCount.TextSize = 24
-FlingedCount.TextXAlignment = Enum.TextXAlignment.Left
-FlingedCount.Parent = FlingedStat
-
--- List Title
-local ListTitle = Instance.new("TextLabel")
-ListTitle.Position = UDim2.new(0, 15, 0, 150)
-ListTitle.Size = UDim2.new(1, -30, 0, 25)
-ListTitle.BackgroundTransparency = 1
-ListTitle.Text = "📋 DANH SÁCH ĐÃ FLING"
-ListTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-ListTitle.Font = Enum.Font.SourceSansBold
-ListTitle.TextSize = 16
-ListTitle.TextXAlignment = Enum.TextXAlignment.Left
-ListTitle.Parent = MainFrame
-
--- List Container
-local ListContainer = Instance.new("Frame")
-ListContainer.Position = UDim2.new(0, 15, 0, 180)
-ListContainer.Size = UDim2.new(1, -30, 0, 220)
-ListContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-ListContainer.BorderSizePixel = 0
-ListContainer.Parent = MainFrame
-
-local ListCorner = Instance.new("UICorner")
-ListCorner.CornerRadius = UDim.new(0, 10)
-ListCorner.Parent = ListContainer
-
--- Scrolling Frame for list
-local ListScroll = Instance.new("ScrollingFrame")
-ListScroll.Position = UDim2.new(0, 5, 0, 5)
-ListScroll.Size = UDim2.new(1, -10, 1, -10)
-ListScroll.BackgroundTransparency = 1
-ListScroll.BorderSizePixel = 0
-ListScroll.ScrollBarThickness = 4
-ListScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 60, 60)
-ListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-ListScroll.Parent = ListContainer
-
--- Pagination Controls
-local PageContainer = Instance.new("Frame")
-PageContainer.Position = UDim2.new(0, 15, 0, 410)
-PageContainer.Size = UDim2.new(1, -30, 0, 35)
-PageContainer.BackgroundTransparency = 1
-PageContainer.Parent = MainFrame
-
-local PrevButton = Instance.new("TextButton")
-PrevButton.Size = UDim2.new(0, 80, 0, 35)
-PrevButton.Position = UDim2.new(0, 0, 0, 0)
-PrevButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-PrevButton.BorderSizePixel = 0
-PrevButton.Text = "◀ TRƯỚC"
-PrevButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-PrevButton.Font = Enum.Font.SourceSansBold
-PrevButton.TextSize = 14
-PrevButton.Parent = PageContainer
-
-local PrevCorner = Instance.new("UICorner")
-PrevCorner.CornerRadius = UDim.new(0, 8)
-PrevCorner.Parent = PrevButton
-
-local PageLabel = Instance.new("TextLabel")
-PageLabel.Size = UDim2.new(1, -170, 0, 35)
-PageLabel.Position = UDim2.new(0, 85, 0, 0)
-PageLabel.BackgroundTransparency = 1
-PageLabel.Text = "Trang 1"
-PageLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-PageLabel.Font = Enum.Font.SourceSansBold
-PageLabel.TextSize = 16
-PageLabel.Parent = PageContainer
-
-local NextButton = Instance.new("TextButton")
-NextButton.Size = UDim2.new(0, 80, 0, 35)
-NextButton.Position = UDim2.new(1, -80, 0, 0)
-NextButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-NextButton.BorderSizePixel = 0
-NextButton.Text = "SAU ▶"
-NextButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-NextButton.Font = Enum.Font.SourceSansBold
-NextButton.TextSize = 14
-NextButton.Parent = PageContainer
-
-local NextCorner = Instance.new("UICorner")
-NextCorner.CornerRadius = UDim.new(0, 8)
-NextCorner.Parent = NextButton
-
--- Stop Button
-local StopButton = Instance.new("TextButton")
-StopButton.Position = UDim2.new(0, 15, 1, -45)
-StopButton.Size = UDim2.new(1, -30, 0, 40)
-StopButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-StopButton.BorderSizePixel = 0
-StopButton.Text = "⏹ DỪNG TỰ ĐỘNG FLING"
-StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-StopButton.Font = Enum.Font.SourceSansBold
-StopButton.TextSize = 16
-StopButton.Parent = MainFrame
-
-local StopCorner = Instance.new("UICorner")
-StopCorner.CornerRadius = UDim.new(0, 10)
-StopCorner.Parent = StopButton
-
--- Variables
-local FlingActive = true
-local ActiveTargets = {}
-local FlingedPlayers = {} -- {name, time}
-local CurrentPage = 1
-local ItemsPerPage = 10
-getgenv().OldPos = nil
-getgenv().FPDH = workspace.FallenPartsDestroyHeight
-
--- Show notification
-local function Message(Title, Text, Time)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = Title,
-        Text = Text,
-        Duration = Time or 5
-    })
+-- ====== Danh sách người chơi (dùng chung) ======
+local function getPlayerNames()
+    local names = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then
+            table.insert(names, p.Name)
+        end
+    end
+    return names
 end
 
--- Check if player is whitelisted
-local function IsWhitelisted(playerName)
-    return WhitelistedPlayers[playerName:lower()] == true
+-- =========================================================
+-- ================ FEATURE 1: SHIRT TROLL =================
+-- =========================================================
+local selectedName = nil
+
+local function applyShirt(character)
+    if not toggledOn then return end
+    local shirt = character:FindFirstChildOfClass("Shirt")
+    if not shirt then
+        shirt = Instance.new("Shirt")
+        shirt.Parent = character
+    end
+    shirt.ShirtTemplate = "rbxassetid://" .. SHIRT_ID
 end
 
--- Update pagination display
-local function UpdatePagination()
-    local totalItems = #FlingedPlayers
-    local totalPages = math.max(1, math.ceil(totalItems / ItemsPerPage))
-    
-    PageLabel.Text = "Trang " .. CurrentPage .. "/" .. totalPages
-    
-    PrevButton.BackgroundColor3 = CurrentPage > 1 and Color3.fromRGB(50, 50, 70) or Color3.fromRGB(30, 30, 40)
-    NextButton.BackgroundColor3 = CurrentPage < totalPages and Color3.fromRGB(50, 50, 70) or Color3.fromRGB(30, 30, 40)
+local function removeShirt(character)
+    local shirt = character:FindFirstChildOfClass("Shirt")
+    if shirt then
+        shirt.ShirtTemplate = ""
+    end
 end
 
--- Update flinged players list
-local function UpdateFlingedList()
-    -- Clear current list
-    for _, child in pairs(ListScroll:GetChildren()) do
-        if child:IsA("Frame") then
-            child:Destroy()
-        end
+local function clearConnections()
+    for _, conn in ipairs(connections) do
+        conn:Disconnect()
     end
-    
-    -- Calculate page items
-    local startIndex = (CurrentPage - 1) * ItemsPerPage + 1
-    local endIndex = math.min(startIndex + ItemsPerPage - 1, #FlingedPlayers)
-    
-    -- Create list items for current page
-    local yPos = 0
-    for i = startIndex, endIndex do
-        local data = FlingedPlayers[i]
-        if data then
-            local ItemFrame = Instance.new("Frame")
-            ItemFrame.Size = UDim2.new(1, -10, 0, 30)
-            ItemFrame.Position = UDim2.new(0, 5, 0, yPos)
-            ItemFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-            ItemFrame.BorderSizePixel = 0
-            ItemFrame.Parent = ListScroll
-            
-            local ItemCorner = Instance.new("UICorner")
-            ItemCorner.CornerRadius = UDim.new(0, 6)
-            ItemCorner.Parent = ItemFrame
-            
-            -- Player number
-            local Number = Instance.new("TextLabel")
-            Number.Size = UDim2.new(0, 30, 1, 0)
-            Number.BackgroundTransparency = 1
-            Number.Text = i .. "."
-            Number.TextColor3 = Color3.fromRGB(255, 60, 60)
-            Number.Font = Enum.Font.SourceSansBold
-            Number.TextSize = 14
-            Number.Parent = ItemFrame
-            
-            -- Player name
-            local NameLabel = Instance.new("TextLabel")
-            NameLabel.Size = UDim2.new(1, -80, 1, 0)
-            NameLabel.Position = UDim2.new(0, 35, 0, 0)
-            NameLabel.BackgroundTransparency = 1
-            NameLabel.Text = data.name
-            NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-            NameLabel.Font = Enum.Font.SourceSans
-            NameLabel.TextSize = 14
-            NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-            NameLabel.Parent = ItemFrame
-            
-            -- Time indicator
-            local TimeLabel = Instance.new("TextLabel")
-            TimeLabel.Size = UDim2.new(0, 45, 1, 0)
-            TimeLabel.Position = UDim2.new(1, -45, 0, 0)
-            TimeLabel.BackgroundTransparency = 1
-            TimeLabel.Text = data.time
-            TimeLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-            TimeLabel.Font = Enum.Font.SourceSans
-            TimeLabel.TextSize = 11
-            TimeLabel.Parent = ItemFrame
-            
-            yPos = yPos + 35
-        end
-    end
-    
-    ListScroll.CanvasSize = UDim2.new(0, 0, 0, yPos)
-    UpdatePagination()
+    connections = {}
 end
 
--- Add player to flinged list
-local function AddToFlingedList(playerName)
-    -- Check if already in list
-    for _, data in ipairs(FlingedPlayers) do
-        if data.name == playerName then
-            return
-        end
-    end
-    
-    -- Get current time
-    local timeStr = os.date("%H:%M:%S")
-    
-    -- Add to list
-    table.insert(FlingedPlayers, 1, {name = playerName, time = timeStr})
-    
-    -- Update display
-    FlingedCount.Text = tostring(#FlingedPlayers)
-    UpdateFlingedList()
-    
-    -- Animate count
-    local tween = TweenService:Create(FlingedCount, TweenInfo.new(0.3, Enum.EasingStyle.Elastic), {
-        TextSize = 28
-    })
-    tween:Play()
-    tween.Completed:Connect(function()
-        TweenService:Create(FlingedCount, TweenInfo.new(0.2), {TextSize = 24}):Play()
-    end)
+local function setTarget(name)
+    clearConnections()
+
+    local targetPlayer = Players:FindFirstChild(name)  
+    if not targetPlayer then  
+        Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy người chơi: " .. name, Duration = 3 })  
+        return  
+    end  
+
+    currentTargetName = name  
+
+    if targetPlayer.Character and toggledOn then  
+        applyShirt(targetPlayer.Character)  
+    end  
+
+    local conn = targetPlayer.CharacterAdded:Connect(function(character)  
+        applyShirt(character)  
+    end)  
+    table.insert(connections, conn)  
+
+    Fluent:Notify({ Title = "Thành công", Content = "Đã áp dụng áo cho " .. name, Duration = 3 })
 end
 
--- Update status display
-local function UpdateStatus()
-    local count = 0
-    for _ in pairs(ActiveTargets) do
-        count = count + 1
+local Dropdown = MainTab:AddDropdown("PlayerDropdown", {
+    Title = "Chọn người chơi",
+    Values = getPlayerNames(),
+    Multi = false,
+    Default = 1,
+    Callback = function(value)
+        selectedName = value
     end
-    
-    TargetCount.Text = tostring(count)
-end
+})
 
--- The fling function
-local function SkidFling(TargetPlayer)
-    local Character = Player.Character
-    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Humanoid and Humanoid.RootPart
-    local TCharacter = TargetPlayer.Character
-    if not TCharacter then return end
-    
-    local THumanoid
-    local TRootPart
-    local THead
-    local Accessory
-    local Handle
-    
-    if TCharacter:FindFirstChildOfClass("Humanoid") then
-        THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
-    end
-    if THumanoid and THumanoid.RootPart then
-        TRootPart = THumanoid.RootPart
-    end
-    if TCharacter:FindFirstChild("Head") then
-        THead = TCharacter.Head
-    end
-    if TCharacter:FindFirstChildOfClass("Accessory") then
-        Accessory = TCharacter:FindFirstChildOfClass("Accessory")
-    end
-    if Accessory and Accessory:FindFirstChild("Handle") then
-        Handle = Accessory.Handle
-    end
-    
-    if Character and Humanoid and RootPart then
-        if RootPart.Velocity.Magnitude < 50 then
-            getgenv().OldPos = RootPart.CFrame
-        end
-        
-        if THumanoid and THumanoid.Sit then
-            return
-        end
-        
-        if THead then
-            workspace.CurrentCamera.CameraSubject = THead
-        elseif Handle then
-            workspace.CurrentCamera.CameraSubject = Handle
-        elseif THumanoid and TRootPart then
-            workspace.CurrentCamera.CameraSubject = THumanoid
-        end
-        
-        if not TCharacter:FindFirstChildWhichIsA("BasePart") then
-            return
-        end
-        
-        local FPos = function(BasePart, Pos, Ang)
-            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
-            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
-            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
-            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
-        end
-        
-        local SFBasePart = function(BasePart)
-            local TimeToWait = 2
-            local Time = tick()
-            local Angle = 0
-            repeat
-                if RootPart and THumanoid then
-                    if BasePart.Velocity.Magnitude < 50 then
-                        Angle = Angle + 100
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle),0 ,0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
-                        task.wait()
-                    else
-                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(math.rad(90), 0, 0))
-                        task.wait()
-                        FPos(BasePart, CFrame.new(0, -1.5, 0), CFrame.Angles(0, 0, 0))
-                        task.wait()
-                    end
-                end
-            until Time + TimeToWait < tick() or not FlingActive
-        end
-        
-        workspace.FallenPartsDestroyHeight = 0/0
-        
-        local BV = Instance.new("BodyVelocity")
-        BV.Parent = RootPart
-        BV.Velocity = Vector3.new(0, 0, 0)
-        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-        
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-        
-        if TRootPart then
-            SFBasePart(TRootPart)
-        elseif THead then
-            SFBasePart(THead)
-        elseif Handle then
-            SFBasePart(Handle)
+MainTab:AddButton({
+    Title = "Áp dụng áo Catalan",
+    Callback = function()
+        if selectedName then
+            setTarget(selectedName)
         else
-            return
+            Fluent:Notify({ Title = "Lỗi", Content = "Bạn chưa chọn người chơi", Duration = 3 })
         end
-        
-        -- Add to flinged list after successful fling
-        AddToFlingedList(TargetPlayer.Name)
-        
-        BV:Destroy()
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-        workspace.CurrentCamera.CameraSubject = Humanoid
-        
-        if getgenv().OldPos then
-            repeat
-                RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
-                Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
-                Humanoid:ChangeState("GettingUp")
-                for _, part in pairs(Character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.Velocity, part.RotVelocity = Vector3.new(), Vector3.new()
-                    end
+    end
+})
+
+MainTab:AddToggle("ShirtToggle", {
+    Title = "Bật/Tắt Áo Catalan",
+    Default = true,
+    Callback = function(value)
+        toggledOn = value
+        if currentTargetName then
+            local targetPlayer = Players:FindFirstChild(currentTargetName)
+            if targetPlayer and targetPlayer.Character then
+                if toggledOn then
+                    applyShirt(targetPlayer.Character)
+                else
+                    removeShirt(targetPlayer.Character)
                 end
-                task.wait()
-            until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
-            workspace.FallenPartsDestroyHeight = getgenv().FPDH
+            end
         end
+        Fluent:Notify({ Title = "Trạng thái", Content = toggledOn and "Đã bật" or "Đã tắt", Duration = 2 })
+    end
+})
+
+-- =========================================================
+-- ============ FEATURE 2: BEANBAG RED TROLL ===============
+-- =========================================================
+MainTab:AddSection("BeanBag Red")
+
+local BEANBAG_TP_CFRAME = CFrame.new(-45.22, -96.33, 3118.56)
+local BEANBAG_CHECK_DURATION = 4    -- giây tối đa chờ xem đã rớt khỏi ghế chưa
+local BEANBAG_ARRIVE_TIMEOUT = 3    -- giây tối đa chờ nạn nhân "tới nơi" trước khi cất tool
+local BEANBAG_ARRIVE_RADIUS = 5     -- khoảng cách (studs) coi như đã tới vị trí TP
+local BEANBAG_EXTRA_SETTLE = 0.75   -- chờ thêm sau khi xác nhận đã tới, để đồng bộ mạng ổn định
+
+local bbSelectedName = nil
+local bbSeatConnection = nil
+local currentBeanbagTool = nil      -- tool BeanBag Red đang cầm (của MÌNH)
+local scriptRemovingTool = false    -- cờ: script tự cất tool, không tính là "tắt thủ công"
+local beanbagEnabled = false        -- bật/tắt tự động theo việc có cầm tool hay không
+
+-- Theo dõi các trick đang chạy để có thể ép huỷ sớm (khi tự tay tắt tool)
+local activeTricks = {} -- [targetCharacter] = { cancelled = false }
+
+-- ---- Tạo part platform cục bộ tại vị trí setting (cực kỳ to và thấp) ----
+local platformPart = nil
+local function createPlatform()
+    if platformPart and platformPart.Parent then
+        return
+    end
+    platformPart = Instance.new("Part")
+    platformPart.Size = Vector3.new(50, 2, 50)         -- Rất rộng
+    platformPart.Position = BEANBAG_TP_CFRAME.Position - Vector3.new(0, 2.5, 0) -- Thấp hơn
+    platformPart.Anchored = true
+    platformPart.CanCollide = true
+    platformPart.BrickColor = BrickColor.new("Medium stone grey")
+    platformPart.Transparency = 0.3
+    platformPart.Parent = workspace
+end
+createPlatform()
+
+-- ---- Bám theo (toggle bật/tắt, tức thì, đứng sau lưng) ----
+local followConnection = nil
+local isFollowing = false
+
+local function stopFollow()
+    isFollowing = false
+    if followConnection then
+        followConnection:Disconnect()
+        followConnection = nil
     end
 end
 
--- Add all current players (excluding whitelisted)
-local function AddAllPlayers()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Player and not IsWhitelisted(player.Name) and not ActiveTargets[player.Name] then
-            ActiveTargets[player.Name] = player
-        end
+local function startFollow(targetName)
+    stopFollow()
+    local targetPlayer = Players:FindFirstChild(targetName)
+    if not targetPlayer then
+        Fluent:Notify({ Title = "Lỗi", Content = "Không tìm thấy người chơi: " .. targetName, Duration = 3 })
+        return
     end
-    UpdateStatus()
-end
 
--- Auto-fling loop
-spawn(function()
-    while FlingActive do
-        local validTargets = {}
-        
-        for name, player in pairs(ActiveTargets) do
-            if player and player.Parent and not IsWhitelisted(player.Name) then
-                validTargets[name] = player
-            else
-                ActiveTargets[name] = nil
-            end
-        end
-        
-        for _, player in pairs(validTargets) do
-            if FlingActive then
-                SkidFling(player)
-                wait(0.1)
-            else
-                break
-            end
-        end
-        
-        UpdateStatus()
-        wait(0.5)
-    end
-end)
+    isFollowing = true  
+    followConnection = RunService.Heartbeat:Connect(function()  
+        if not isFollowing then return end  
 
--- Handle new players joining
-Players.PlayerAdded:Connect(function(player)
-    if player ~= Player and not IsWhitelisted(player.Name) then
-        wait(2)
-        ActiveTargets[player.Name] = player
-        UpdateStatus()
-        Message("Mục Tiêu Mới", player.Name .. " đã được thêm vào danh sách!", 2)
-    elseif IsWhitelisted(player.Name) then
-        Message("Đã Bỏ Qua", player.Name .. " nằm trong whitelist!", 2)
-    end
-end)
+        local myChar = player.Character  
+        local targetChar = targetPlayer.Character  
+        if not myChar or not targetChar then return end  
 
--- Handle players leaving
-Players.PlayerRemoving:Connect(function(player)
-    if ActiveTargets[player.Name] then
-        ActiveTargets[player.Name] = nil
-        UpdateStatus()
-    end
-end)
-
--- Pagination buttons
-PrevButton.MouseButton1Click:Connect(function()
-    if CurrentPage > 1 then
-        CurrentPage = CurrentPage - 1
-        UpdateFlingedList()
-    end
-end)
-
-NextButton.MouseButton1Click:Connect(function()
-    local totalPages = math.max(1, math.ceil(#FlingedPlayers / ItemsPerPage))
-    if CurrentPage < totalPages then
-        CurrentPage = CurrentPage + 1
-        UpdateFlingedList()
-    end
-end)
-
--- Button hover effects
-local function AddHoverEffect(button, normalColor, hoverColor)
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
-    end)
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = normalColor}):Play()
+        local myHRP = myChar:FindFirstChild("HumanoidRootPart")  
+        local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")  
+        if myHRP and targetHRP then  
+            myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)  
+        end  
     end)
 end
 
-AddHoverEffect(CloseButton, Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 100, 100))
-AddHoverEffect(StopButton, Color3.fromRGB(255, 60, 60), Color3.fromRGB(255, 100, 100))
-AddHoverEffect(PrevButton, Color3.fromRGB(50, 50, 70), Color3.fromRGB(70, 70, 90))
-AddHoverEffect(NextButton, Color3.fromRGB(50, 50, 70), Color3.fromRGB(70, 70, 90))
-
--- Stop button
-StopButton.MouseButton1Click:Connect(function()
-    FlingActive = false
-    ActiveTargets = {}
-    UpdateStatus()
-    
-    StatusBadge.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-    StatusText.Text = "ĐÃ DỪNG"
-    Title.Text = "ĐÃ DỪNG"
-    StopButton.Text = "✓ ĐÃ DỪNG"
-    StopButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-    
-    Message("Đã Dừng", "Tự động fling đã được tắt", 2)
-end)
-
--- Close button
-CloseButton.MouseButton1Click:Connect(function()
-    FlingActive = false
-    ScreenGui:Destroy()
-end)
-
--- Animate UI on load
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -300)
-TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
-    Position = UDim2.new(0.5, -175, 0.5, -235)
-}):Play()
-
--- Initialize
-AddAllPlayers()
-UpdateFlingedList()
-
--- Success message with whitelist info
-local whitelistCount = 0
-for _ in pairs(WhitelistedPlayers) do
-    whitelistCount = whitelistCount + 1
+-- ---- Logic tool / seat ----
+local function findSeatInTool(tool)
+    local visual = tool:FindFirstChild("Visual")
+    if not visual then return nil end
+    local propSeat = visual:FindFirstChild("PropSeat")
+    if not propSeat then return nil end
+    if propSeat:IsA("Seat") or propSeat:IsA("VehicleSeat") then
+        return propSeat
+    end
+    return propSeat:FindFirstChildWhichIsA("Seat", true)
+        or propSeat:FindFirstChildWhichIsA("VehicleSeat", true)
 end
 
-Message("Đã Kích Hoạt!", "Tự động fling hoạt động! " .. whitelistCount .. " người trong whitelist sẽ không bị fling.", 4)
+local function playBeanbagTrick(targetCharacter, seat, equippedTool)
+    local hrp = targetCharacter:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local originalCFrame = hrp.CFrame  
+
+    local state = { cancelled = false }  
+    activeTricks[targetCharacter] = state  
+
+    -- Chờ 1 giây trước khi TP  
+    task.wait(1)  
+    if state.cancelled then return end  
+
+    -- Bước 1: TP tới vị trí setting (cao hơn một chút để đứng trên part)  
+    local targetPos = BEANBAG_TP_CFRAME.Position + Vector3.new(0, 1.5, 0) -- đứng trên part  
+    local targetCFrame = CFrame.new(targetPos)  
+    local currentHrp = targetCharacter:FindFirstChild("HumanoidRootPart")  
+    if currentHrp then  
+        currentHrp.CFrame = targetCFrame  
+    end  
+
+    -- Bước 1.5 (FIX): chờ cho tới khi nạn nhân THỰC SỰ đã tới vị trí TP  
+    -- (đợi vị trí HumanoidRootPart nằm trong bán kính cho phép, có timeout dự phòng)  
+    -- rồi mới chờ thêm một chút để đảm bảo đồng bộ mạng ổn định trước khi cất tool.  
+    local arriveElapsed = 0  
+    while arriveElapsed < BEANBAG_ARRIVE_TIMEOUT and not state.cancelled do  
+        local hrpNow = targetCharacter:FindFirstChild("HumanoidRootPart")  
+        if hrpNow and (hrpNow.Position - targetPos).Magnitude <= BEANBAG_ARRIVE_RADIUS then  
+            break  
+        end  
+        local dt = task.wait()  
+        arriveElapsed += dt  
+    end  
+    if state.cancelled then return end  
+
+    task.wait(BEANBAG_EXTRA_SETTLE)  
+    if state.cancelled then return end  
+
+    -- Bước 2: Đợi đến khi ghế không còn người hoặc người ngồi chính là nạn nhân, rồi mới cất tool
+    repeat
+        task.wait()
+    until seat.Occupant == nil or (seat.Occupant and seat.Occupant.Parent == targetCharacter) or state.cancelled
+
+    if state.cancelled then return end
+
+    if equippedTool and equippedTool.Parent == player.Character then
+        scriptRemovingTool = true
+        equippedTool.Parent = player.Backpack
+        task.defer(function()
+            scriptRemovingTool = false
+        end)
+    end
+
+    -- Bước 3: chờ tối đa BEANBAG_CHECK_DURATION giây để kiểm tra nạn nhân đã rời ghế chưa  
+    local elapsed = 0  
+    while elapsed < BEANBAG_CHECK_DURATION and not state.cancelled do  
+        local occ = seat.Occupant  
+        local occChar = occ and occ.Parent  
+        if occChar ~= targetCharacter then  
+            break  
+        end  
+        local dt = task.wait()  
+        elapsed += dt  
+    end  
+
+    -- Bước 4: TP nạn nhân về vị trí cũ  
+    local currentHrp2 = targetCharacter:FindFirstChild("HumanoidRootPart")  
+    if currentHrp2 then  
+        currentHrp2.CFrame = originalCFrame  
+    end  
+
+    activeTricks[targetCharacter] = nil
+end
+
+local function watchSeat(seat, tool)
+    if bbSeatConnection then
+        bbSeatConnection:Disconnect()
+    end
+    bbSeatConnection = seat:GetPropertyChangedSignal("Occupant"):Connect(function()
+        if not beanbagEnabled then return end -- nếu đang tắt (không cầm tool) thì không làm gì
+        local occupant = seat.Occupant
+        if occupant then
+            local occupantChar = occupant.Parent
+            local occupantPlayer = Players:GetPlayerFromCharacter(occupantChar)
+            if occupantPlayer and bbSelectedName and occupantPlayer.Name == bbSelectedName then
+                stopFollow()
+                task.spawn(playBeanbagTrick, occupantChar, seat, tool)
+            end
+        end
+    end)
+end
+
+local function onBeanbagEquipped(tool)
+    currentBeanbagTool = tool
+    -- Tự động bật khi cầm tool
+    if not beanbagEnabled then
+        beanbagEnabled = true
+        Fluent:Notify({ Title = "BeanBag", Content = "Đã tự động bật vì có tool", Duration = 2 })
+    end
+    if not bbSelectedName then return end
+    local seat = findSeatInTool(tool)
+    if seat then
+        watchSeat(seat, tool)
+        Fluent:Notify({ Title = "BeanBag Red", Content = "Đang theo dõi ghế cho " .. bbSelectedName, Duration = 3 })
+    end
+end
+
+local function onBeanbagUnequipped()
+    if bbSeatConnection then
+        bbSeatConnection:Disconnect()
+        bbSeatConnection = nil
+    end
+    currentBeanbagTool = nil
+    -- Tự động tắt vì không còn tool
+    if beanbagEnabled then
+        beanbagEnabled = false
+        Fluent:Notify({ Title = "BeanBag", Content = "Đã tắt vì không cầm tool", Duration = 2 })
+    end
+
+    -- Chỉ ép huỷ khi ĐÂY LÀ BẠN TỰ TẮT TOOL THỦ CÔNG, không phải do script tự cất  
+    if not scriptRemovingTool then  
+        for _, state in pairs(activeTricks) do  
+            state.cancelled = true  
+        end  
+    end
+end
+
+local function hookCharacter(character)
+    character.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") and child.Name == "BeanBag Red" then
+            onBeanbagEquipped(child)
+        end
+    end)
+    character.ChildRemoved:Connect(function(child)
+        if child:IsA("Tool") and child.Name == "BeanBag Red" then
+            onBeanbagUnequipped()
+        end
+    end)
+end
+
+if player.Character then
+    hookCharacter(player.Character)
+end
+player.CharacterAdded:Connect(hookCharacter)
+
+local BeanbagDropdown = MainTab:AddDropdown("BeanbagPlayerDropdown", {
+    Title = "Người chơi",
+    Values = getPlayerNames(),
+    Multi = false,
+    Default = 1,
+    Callback = function(value)
+        bbSelectedName = value
+        if player.Character then
+            local tool = player.Character:FindFirstChild("BeanBag Red")
+            if tool then
+                onBeanbagEquipped(tool)
+            end
+        end
+    end
+})
+
+MainTab:AddToggle("FollowToggle", {
+    Title = "Bật/Tắt Bám Theo",
+    Default = false,
+    Callback = function(value)
+        if value then
+            if bbSelectedName then
+                startFollow(bbSelectedName)
+                Fluent:Notify({ Title = "Bám theo", Content = "Đang bám theo " .. bbSelectedName, Duration = 3 })
+            else
+                Fluent:Notify({ Title = "Lỗi", Content = "Bạn chưa chọn người chơi", Duration = 3 })
+            end
+        else
+            stopFollow()
+            Fluent:Notify({ Title = "Bám theo", Content = "Đã tắt", Duration = 2 })
+        end
+    end
+})
+
+MainTab:AddButton({
+    Title = "Làm mới danh sách",
+    Callback = function()
+        Dropdown:SetValues(getPlayerNames())
+        BeanbagDropdown:SetValues(getPlayerNames())
+        Fluent:Notify({ Title = "Làm mới", Content = "Đã cập nhật danh sách người chơi", Duration = 2 })
+    end
+})
+
+-- ====== Tự cập nhật danh sách khi có người vào/ra ======
+Players.PlayerAdded:Connect(function()
+    task.wait(0.5)
+    Dropdown:SetValues(getPlayerNames())
+    BeanbagDropdown:SetValues(getPlayerNames())
+end)
+
+Players.PlayerRemoving:Connect(function()
+    task.wait(0.5)
+    Dropdown:SetValues(getPlayerNames())
+    BeanbagDropdown:SetValues(getPlayerNames())
+end)
+
+Fluent:Notify({
+    Title = "Thành Phố Vina RP ❄️",
+    Content = "Đã tải xong",
+    Duration = 4
+})
