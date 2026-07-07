@@ -1,12 +1,18 @@
 -- LocalScript trong StarterPlayerScripts
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
 local SHIRT_ID = 3204384330
 local connections = {}
 local toggledOn = true
 local currentTargetName = nil
+
+-- ====== Tạo RemoteEvent ======
+local remoteEvent = Instance.new("RemoteEvent")
+remoteEvent.Name = "UpdateSign"
+remoteEvent.Parent = ReplicatedStorage
 
 -- ====== Load Fluent UI ======
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
@@ -132,30 +138,29 @@ MainTab:AddToggle("ShirtToggle", {
 MainTab:AddSection("BeanBag Red")
 
 local BEANBAG_TP_CFRAME = CFrame.new(-45.22, -96.33, 3118.56)
-local BEANBAG_CHECK_DURATION = 4    -- giây tối đa chờ xem đã rớt khỏi ghế chưa
-local BEANBAG_ARRIVE_TIMEOUT = 3    -- giây tối đa chờ nạn nhân "tới nơi" trước khi cất tool
-local BEANBAG_ARRIVE_RADIUS = 5     -- khoảng cách (studs) coi như đã tới vị trí TP
-local BEANBAG_EXTRA_SETTLE = 1.5    -- chờ thêm sau khi xác nhận đã tới, để đồng bộ mạng ổn định (cất tool lâu hơn)
-local BEANBAG_PRE_TP_DELAY = 0.1    -- chờ rất ngắn trước khi TP, để nạn nhân không kịp đứng dậy/chạy đi
+local BEANBAG_CHECK_DURATION = 4
+local BEANBAG_ARRIVE_TIMEOUT = 3
+local BEANBAG_ARRIVE_RADIUS = 5
+local BEANBAG_EXTRA_SETTLE = 1.5
+local BEANBAG_PRE_TP_DELAY = 0.1
 
 local bbSelectedName = nil
 local bbSeatConnection = nil
-local currentBeanbagTool = nil      -- tool BeanBag Red đang cầm (của MÌNH)
-local scriptRemovingTool = false    -- cờ: script tự cất tool, không tính là "tắt thủ công"
-local beanbagEnabled = false        -- bật/tắt tự động theo việc có cầm tool hay không
+local currentBeanbagTool = nil
+local scriptRemovingTool = false
+local beanbagEnabled = false
 
--- Theo dõi các trick đang chạy để có thể ép huỷ sớm (khi tự tay tắt tool)
-local activeTricks = {} -- [targetCharacter] = { cancelled = false }
+local activeTricks = {}
 
--- ---- Tạo part platform cục bộ tại vị trí setting (cực kỳ to và thấp) ----
+-- ---- Tạo part platform cục bộ tại vị trí setting ----
 local platformPart = nil
 local function createPlatform()
     if platformPart and platformPart.Parent then
         return
     end
     platformPart = Instance.new("Part")
-    platformPart.Size = Vector3.new(50, 2, 50)         -- Rất rộng
-    platformPart.Position = BEANBAG_TP_CFRAME.Position - Vector3.new(0, 2.5, 0) -- Thấp hơn
+    platformPart.Size = Vector3.new(50, 2, 50)
+    platformPart.Position = BEANBAG_TP_CFRAME.Position - Vector3.new(0, 2.5, 0)
     platformPart.Anchored = true
     platformPart.CanCollide = true
     platformPart.BrickColor = BrickColor.new("Medium stone grey")
@@ -164,7 +169,7 @@ local function createPlatform()
 end
 createPlatform()
 
--- ---- Bám theo (toggle bật/tắt, tức thì, đứng sau lưng) ----
+-- ---- Bám theo ----
 local followConnection = nil
 local isFollowing = false
 
@@ -220,21 +225,16 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
     local state = { cancelled = false }  
     activeTricks[targetCharacter] = state  
 
-    -- TP gần như ngay lập tức (siêu nhanh) để nạn nhân không kịp đứng dậy chạy khỏi ghế  
     task.wait(BEANBAG_PRE_TP_DELAY)  
     if state.cancelled then return end  
 
-    -- Bước 1: TP tới vị trí setting (cao hơn một chút để đứng trên part)  
-    local targetPos = BEANBAG_TP_CFRAME.Position + Vector3.new(0, 1.5, 0) -- đứng trên part  
+    local targetPos = BEANBAG_TP_CFRAME.Position + Vector3.new(0, 1.5, 0)
     local targetCFrame = CFrame.new(targetPos)  
     local currentHrp = targetCharacter:FindFirstChild("HumanoidRootPart")  
     if currentHrp then  
         currentHrp.CFrame = targetCFrame  
     end  
 
-    -- Bước 1.5 (FIX): chờ cho tới khi nạn nhân THỰC SỰ đã tới vị trí TP  
-    -- (đợi vị trí HumanoidRootPart nằm trong bán kính cho phép, có timeout dự phòng)  
-    -- rồi mới chờ thêm một chút để đảm bảo đồng bộ mạng ổn định trước khi cất tool.  
     local arriveElapsed = 0  
     while arriveElapsed < BEANBAG_ARRIVE_TIMEOUT and not state.cancelled do  
         local hrpNow = targetCharacter:FindFirstChild("HumanoidRootPart")  
@@ -249,7 +249,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
     task.wait(BEANBAG_EXTRA_SETTLE)  
     if state.cancelled then return end  
 
-    -- Bước 2: Đợi đến khi ghế không còn người hoặc người ngồi chính là nạn nhân, rồi mới cất tool
     repeat
         task.wait()
     until seat.Occupant == nil or (seat.Occupant and seat.Occupant.Parent == targetCharacter) or state.cancelled
@@ -264,7 +263,6 @@ local function playBeanbagTrick(targetCharacter, seat, equippedTool)
         end)
     end
 
-    -- Bước 3: chờ tối đa BEANBAG_CHECK_DURATION giây để kiểm tra nạn nhân đã rời ghế chưa  
     local elapsed = 0  
     while elapsed < BEANBAG_CHECK_DURATION and not state.cancelled do  
         local occ = seat.Occupant  
@@ -284,7 +282,7 @@ local function watchSeat(seat, tool)
         bbSeatConnection:Disconnect()
     end
     bbSeatConnection = seat:GetPropertyChangedSignal("Occupant"):Connect(function()
-        if not beanbagEnabled then return end -- nếu đang tắt (không cầm tool) thì không làm gì
+        if not beanbagEnabled then return end
         local occupant = seat.Occupant
         if occupant then
             local occupantChar = occupant.Parent
@@ -299,7 +297,6 @@ end
 
 local function onBeanbagEquipped(tool)
     currentBeanbagTool = tool
-    -- Tự động bật khi cầm tool
     if not beanbagEnabled then
         beanbagEnabled = true
         Fluent:Notify({ Title = "BeanBag", Content = "Đã tự động bật vì có tool", Duration = 2 })
@@ -318,13 +315,11 @@ local function onBeanbagUnequipped()
         bbSeatConnection = nil
     end
     currentBeanbagTool = nil
-    -- Tự động tắt vì không còn tool
     if beanbagEnabled then
         beanbagEnabled = false
         Fluent:Notify({ Title = "BeanBag", Content = "Đã tắt vì không cầm tool", Duration = 2 })
     end
 
-    -- Chỉ ép huỷ khi ĐÂY LÀ BẠN TỰ TẮT TOOL THỦ CÔNG, không phải do script tự cất  
     if not scriptRemovingTool then  
         for _, state in pairs(activeTricks) do  
             state.cancelled = true  
@@ -412,13 +407,18 @@ end)
 MainTab:AddSection("Dark Sign")
 
 -- !!! THAY LINK NÀY BẰNG LINK "RAW" THẬT CỦA FILE ngon.txt TRÊN GITHUB !!!
--- Ví dụ dạng: https://raw.githubusercontent.com/<user>/<repo>/<branch>/ngon.txt
-local SIGN_TEXT_URL = "https://raw.githubusercontent.com/teddyz7384/teddyzhandsomee-/refs/heads/main/ngon.txt"
-local SIGN_UPDATE_INTERVAL = 0.2 -- giây
+local SIGN_TEXT_URL = "https://raw.githubusercontent.com/USERNAME/REPO/BRANCH/ngon.txt"
+local SIGN_UPDATE_INTERVAL = 1
 
 local signLines = {}
 local signCycling = false
 local signCurrentIndex = 0
+local signUpdating = false
+
+-- Hàm gửi update qua RemoteEvent cho tất cả người chơi
+local function broadcastSignUpdate(text)
+    remoteEvent:FireAllClients(text)
+end
 
 -- Tìm Tool "Dark Sign" dù đang cầm (Character) hay trong Backpack
 local function findDarkSignTool()
@@ -435,6 +435,27 @@ local function findDarkSignTool()
     return nil
 end
 
+-- Tìm TextLabel trong SignPart > SurfaceGui của tool Dark Sign
+local function getSignTextLabel()
+    local tool = findDarkSignTool()
+    if not tool then return nil end
+    local signPart = tool:FindFirstChild("SignPart")
+    if not signPart then return nil end
+    local surfaceGui = signPart:FindFirstChildOfClass("SurfaceGui")
+    if not surfaceGui then return nil end
+    return surfaceGui:FindFirstChild("TextLabel")
+end
+
+-- Cập nhật text label và broadcast
+local function updateSignText(text)
+    local label = getSignTextLabel()
+    if label then
+        label.Text = text
+    end
+    -- Gửi update cho tất cả người chơi qua RemoteEvent
+    broadcastSignUpdate(text)
+end
+
 -- Tải nội dung ngon.txt và tách thành từng dòng
 local function loadSignLines()
     local ok, content = pcall(function()
@@ -448,7 +469,7 @@ local function loadSignLines()
 
     signLines = {}
     for line in content:gmatch("[^\r\n]+") do
-        line = line:gsub("^%s+", ""):gsub("%s+$", "") -- bỏ khoảng trắng thừa
+        line = line:gsub("^%s+", ""):gsub("%s+$", "")
         if line ~= "" then
             table.insert(signLines, line)
         end
@@ -457,19 +478,8 @@ local function loadSignLines()
     return #signLines > 0
 end
 
--- Tìm TextLabel trong SignPart > SurfaceGui của tool Dark Sign
-local function getSignTextLabel()
-    local tool = findDarkSignTool()
-    if not tool then return nil end
-    local signPart = tool:FindFirstChild("SignPart")
-    if not signPart then return nil end
-    local surfaceGui = signPart:FindFirstChildOfClass("SurfaceGui")
-    if not surfaceGui then return nil end
-    return surfaceGui:FindFirstChild("TextLabel")
-end
-
 local function startSignCycling()
-    if signCycling then return end -- đã chạy rồi thì thôi
+    if signCycling then return end
 
     if #signLines == 0 then
         if not loadSignLines() then
@@ -485,7 +495,7 @@ local function startSignCycling()
 
     signCycling = true
     signCurrentIndex = 1
-    textLabel.Text = signLines[signCurrentIndex]
+    updateSignText(signLines[signCurrentIndex])
 
     Fluent:Notify({ Title = "Dark Sign", Content = "Đã bật nháy bảng", Duration = 2 })
 
@@ -496,17 +506,26 @@ local function startSignCycling()
             if #signLines == 0 then break end
 
             signCurrentIndex = (signCurrentIndex % #signLines) + 1
-            local label = getSignTextLabel()
-            if label then
-                label.Text = signLines[signCurrentIndex]
-            end
+            updateSignText(signLines[signCurrentIndex])
         end
     end)
 end
 
 local function stopSignCycling()
     signCycling = false
+    -- Khi tắt, set text về mặc định hoặc rỗng
+    updateSignText("")
 end
+
+-- Lắng nghe RemoteEvent từ server để cập nhật text
+remoteEvent.OnClientEvent:Connect(function(text)
+    if not signUpdating then
+        local label = getSignTextLabel()
+        if label then
+            label.Text = text
+        end
+    end
+end)
 
 MainTab:AddToggle("SignBlinkToggle", {
     Title = "Bật/Tắt Nháy Bảng",
@@ -518,6 +537,15 @@ MainTab:AddToggle("SignBlinkToggle", {
             stopSignCycling()
             Fluent:Notify({ Title = "Dark Sign", Content = "Đã tắt nháy bảng", Duration = 2 })
         end
+    end
+})
+
+-- Button để gửi test message cho tất cả người chơi
+MainTab:AddButton({
+    Title = "Gửi test (All)",
+    Callback = function()
+        remoteEvent:FireAllClients("Test message from " .. player.Name)
+        Fluent:Notify({ Title = "Đã gửi", Content = "Test message đã gửi cho tất cả", Duration = 2 })
     end
 })
 
