@@ -512,7 +512,7 @@ local function startSignCycling()
 
     task.spawn(function()
         while signCycling do
-            task.wait(0.3) -- Đã đổi từ 1s xuống 0.3s
+            task.wait(0.1) -- Đã đổi từ 1s xuống 0.3s
             if not signCycling then break end
             if #signLines == 0 then break end
 
