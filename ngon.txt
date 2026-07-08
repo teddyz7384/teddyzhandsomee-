@@ -1,50 +1,44 @@
-{owner} tui anh van la vua server nay {target} =)))=))) 🤪
+{owner} tui anh van la vua game nay =)))=))) 🤪
 {target} khoc loc ca dem =)))=))) 🤪
-{owner} bon anh ba vl khong ai bang {target} =)))=))) 🤪
+{owner} bon anh ba vl khong ai bang =)))=))) 🤪
 {target} cay cu vl =)))=))) 🤪
-{owner} tui anh dep zai va tai gioi {target} =)))=))) 🤪
+{owner} tui anh dep zai va tai gioi =)))=))) 🤪
 {target} nao cut vl =)))=))) 🤪
-{owner} may chi la con cho nho {target} =)))=))) 🤪
+{target} tui may chi la con cho cua {owner} =)))=))) 🤪
 {target} thua roi con cay =)))=))) 🤪
-{owner} tui anh van dung dau moi map {target} =)))=))) 🤪
+{owner} tui anh van dung dau map =)))=))) 🤪
 {target} ban acc di ngheo =)))=))) 🤪
-{owner} bon anh vo dich lien tuc {target} =)))=))) 🤪
 {target} thieu nang qua roi =)))=))) 🤪
 {owner} tui anh ba qua khong che {target} =)))=))) 🤪
 {target} om han mai mai =)))=))) 🤪
-{owner} giau nhat server khong can noi {target} =)))=))) 🤪
 {target} ga qua troi =)))=))) 🤪
 {owner} tui anh van ba dao {target} =)))=))) 🤪
 {target} speed len di thang cham =)))=))) 🤪
-{owner} may chi xung lam con cun {target} =)))=))) 🤪
+{target} tui may chi xung lam con tuat cua {owner} =)))=))) 🤪
 {target} ngu nhu heo vl =)))=))) 🤪
-{owner} tui anh ba vl het nuoc {target} =)))=))) 🤪
 {target} cay den muc dap ban phim =)))=))) 🤪
-{owner} bon anh la huyen thoai Vina RP {target} =)))=))) 🤪
 {target} ren ha thang oc cho =)))=))) 🤪
-{owner} tui anh giau tien mua server {target} =)))=))) 🤪
 {target} khoc di con =)))=))) 🤪
-{owner} van ba nhat khong doi thu {target} =)))=))) 🤪
+{owner} van ba nhat khong doi thu =)))=))) 🤪
 {target} ngu vl =)))=))) 🤪
-{owner} tui anh dep trai so 1 {target} =)))=))) 🤪
 {target} go cham vl =)))=))) 🤪
-{owner} tui anh van ba nhat Vina RP ma {target} =)))=))) 🤪
+{owner} tui anh van ba nhat Vina RP ma =)))=))) 🤪
 {target} ngu nhat Vina RP vl =)))=))) 🤪
-{owner} bon anh van ba dao moi ngay dm {target} =)))=))) 🤪
+{owner} bon anh van ba dao moi ngay =)))=))) 🤪
 {target} van cay tui anh a clgt =)))=))) 🤪
 {owner} tui anh ba qua vl {target} =)))=))) 🤪
 {target} om han tui anh suot doi =)))=))) 🤪
 {owner} tui anh ba vl {target} =)))=))) 🤪
 {target} go cham vl speed len di =)))=))) 🤪
-{owner} tui anh ba qua troi {target} =)))=))) 🤪
+{owner} tui anh ba qua troi =)))=))) 🤪
 {target} ren roi ha con cho =)))=))) 🤪
-{owner} giau nhat Vina RP ma {target} =)))=))) 🤪
+{owner} giau nhat Vina RP ma lũ {target} =)))=))) 🤪
 {target} ngu nhu heo =)))=))) 🤪
-{owner} tui anh van dung dau server {target} =)))=))) 🤪
+{owner} tui anh van dung dau server, ai nhu {target} =)))=))) 🤪
 {target} cay cu vl khoc di =)))=))) 🤪
-{owner} bon anh vo dich {target} =)))=))) 🤪
+{owner} bon anh vo dich sut ca {target} =)))=))) 🤪
 {target} thang oc cho =)))=))) 🤪
-{owner} tui anh dep trai nhat Vina RP {target} =)))=))) 🤪
+{owner} tui anh dep trai nhat Vina RP =)))=))) 🤪
 {target} nao cut a =)))=))) 🤪
 {owner} may chi la thang can ba {target} =)))=))) 🤪
 {target} thua hoai van khong chiu =)))=))) 🤪
@@ -54,17 +48,40 @@
 {target} ban acc luon di =)))=))) 🤪
 {owner} tui anh van la vua Vina RP {target} =)))=))) 🤪
 {target} thieu nang vl =)))=))) 🤪
-{owner} may chi xung dang quet san {target} =)))=))) 🤪
+{target} chi xung dang xao cac=)))=))) 🤪
 {target} ga vl =)))=))) 🤪
-{owner} tui anh ba qua troi qua dat {target} =)))=))) 🤪
+{owner} tui anh ba qua troi qua dat =)))=))) 🤪
 {target} om han suot doi =)))=))) 🤪
-{owner} bon anh vo dich het server {target} =)))=))) 🤪
+{owner} bon anh vo dich het server =)))=))) 🤪
 {target} cay den muc muon chet =)))=))) 🤪
-{owner} tui anh van ba vl {target} =)))=))) 🤪
+{owner} tui anh van ba vl =)))=))) 🤪
 {target} ngu nhu bo =)))=))) 🤪
 {owner} may ngheo kiet xac {target} =)))=))) 🤪
 {target} go cham nhu rua =)))=))) 🤪
-{owner} tui anh ba dao moi ngay moi gio {target} =)))=))) 🤪
+{owner} tui anh ba dao moi ngay moi gio =)))=))) 🤪
 {target} ren roi ha ga =)))=))) 🤪
-{owner} giau nhat Vina RP khong doi thu {target} =)))=))) 🤪
+{owner} giau nhat Vina RP khong doi thu =)))=))) 🤪
 {target} thang ngu oc cho =)))=))) 🤪
+{owner} tui anh ba qua den thang chu {target} con phai so tui anh =)))=))) 🤪
+{target} chung may im re het vay =)))=))) 🤪
+{target} tui may chan qua =)))=))) 🤪
+{target} ngon can het roi ha =)))=))) 🤪
+{target} ao tuong doi an {owner} hả =)))=))) 🤪
+{target} va nhung con cho cua {owner} =)))=))) 🤪
+{target} chung may ngheo hen nhin tham hai vay =)))=))) 🤪
+{target} slowed qua =)))=))) 🤪
+{target} bai qua, thua anh ro roi ma cu cai cun =)))=))) 🤪
+{target} dung om han {owner} tui anh nha =)))=))) 🤪
+{target} cho can tao ma go khong lai tao ma =)))=))) 🤪
+{target} nhanh len coi cham qua =)))=))) 🤪
+{target} gang bai nhat vina rp =)))=))) 🤪
+{target} tui may nhắm gõ nhanh hon t k =)))=))) 🤪
+{target} đừng có cay gọi ad ban {owner} nha, tụi tao cha ad mà =)))=))) 🤪
+{target} cay khong =)))=))) 🤪
+{target} bai ro r nha =)))=))) 🤪
+{target} can ngon nham gi vay, thua sap chet nen hoi quang phan chieu ha =)))=))) 🤪
+{target} le nhe qua em oi, may go thua tao ma =)))=))) 🤪
+{target} can ngon roi kia cay khong =)))=))) 🤪
+{target} ai hoi thang em khong =)))=))) 🤪
+{target} haha lai phai win roi =)))=))) 🤪
+
