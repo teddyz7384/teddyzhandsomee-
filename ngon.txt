@@ -9,7 +9,7 @@
 {owner} tui anh van dung dau map =)))=))) 🤪
 {target} ban acc di ngheo =)))=))) 🤪
 {target} thieu nang qua roi =)))=))) 🤪
-{owner} tui anh ba qua khong che {target} =)))=))) 🤪
+{owner} tui anh ba qua ma =)))=))) 🤪
 {target} om han mai mai =)))=))) 🤪
 {target} ga qua troi =)))=))) 🤪
 {owner} tui anh van ba dao {target} =)))=))) 🤪
@@ -26,7 +26,6 @@
 {target} ngu nhat Vina RP vl =)))=))) 🤪
 {owner} bon anh van ba dao moi ngay =)))=))) 🤪
 {target} van cay tui anh a clgt =)))=))) 🤪
-{owner} tui anh ba qua vl {target} =)))=))) 🤪
 {target} om han tui anh suot doi =)))=))) 🤪
 {owner} tui anh ba vl {target} =)))=))) 🤪
 {target} go cham vl speed len di =)))=))) 🤪
@@ -40,13 +39,13 @@
 {target} thang oc cho =)))=))) 🤪
 {owner} tui anh dep trai nhat Vina RP =)))=))) 🤪
 {target} nao cut a =)))=))) 🤪
-{owner} may chi la thang can ba {target} =)))=))) 🤪
+{target} chi la lu can ba =)))=))) 🤪
 {target} thua hoai van khong chiu =)))=))) 🤪
 {owner} tui anh ba dao tu sang den toi {target} =)))=))) 🤪
 {target} dap may di thang ngu =)))=))) 🤪
-{owner} tui anh giau nhu rác {target} =)))=))) 🤪
+{owner} tui anh giau, ai nhu rác {target} =)))=))) 🤪
 {target} ban acc luon di =)))=))) 🤪
-{owner} tui anh van la vua Vina RP {target} =)))=))) 🤪
+{owner} tui anh van la vua Vina RP =)))=))) 🤪
 {target} thieu nang vl =)))=))) 🤪
 {target} chi xung dang xao cac=)))=))) 🤪
 {target} ga vl =)))=))) 🤪
@@ -56,7 +55,7 @@
 {target} cay den muc muon chet =)))=))) 🤪
 {owner} tui anh van ba vl =)))=))) 🤪
 {target} ngu nhu bo =)))=))) 🤪
-{owner} may ngheo kiet xac {target} =)))=))) 🤪
+{target} tui may ngheo kiet xac =)))=))) 🤪
 {target} go cham nhu rua =)))=))) 🤪
 {owner} tui anh ba dao moi ngay moi gio =)))=))) 🤪
 {target} ren roi ha ga =)))=))) 🤪
@@ -82,6 +81,5 @@
 {target} can ngon nham gi vay, thua sap chet nen hoi quang phan chieu ha =)))=))) 🤪
 {target} le nhe qua em oi, may go thua tao ma =)))=))) 🤪
 {target} can ngon roi kia cay khong =)))=))) 🤪
-{target} ai hoi thang em khong =)))=))) 🤪
-{target} haha lai phai win roi =)))=))) 🤪
-
+ai hoi may tk ngu {target} khong vay =)))=))) 🤪
+haha lai phai win {target} roi =)))=))) 🤪
